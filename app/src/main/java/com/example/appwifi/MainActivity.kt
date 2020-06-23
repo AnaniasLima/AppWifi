@@ -1,14 +1,6 @@
 package com.example.appwifi
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.net.NetworkInfo
-import android.net.wifi.WifiConfiguration
-import android.net.wifi.WifiInfo
-import android.net.wifi.WifiManager
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -90,7 +82,6 @@ class MainActivity : AppCompatActivity()  {
 
         }
 
-
         btn_findArduinoAccessPoint.visibility =  View.VISIBLE
         btn_findArduinoAccessPoint.isEnabled = true
     }
@@ -105,7 +96,14 @@ class MainActivity : AppCompatActivity()  {
         btn_connect.visibility =  View.VISIBLE
         btn_connect.isEnabled = true
 
-        WifiController.connectToWPAWiFi(nomeDaRedeWifi, senha.toString())
+        var ccc: WifiController.ConnectToWifiNetwork = WifiController.ConnectToWifiNetwork(this, nomeDaRedeWifi, senha.toString())
+
+        Timber.i("Ops Antes...." )
+
+        ccc.execute()
+        Timber.i("Ops depois...." )
+
+//        WifiController.connectToWPAWiFi(nomeDaRedeWifi, senha.toString())
     }
 
 

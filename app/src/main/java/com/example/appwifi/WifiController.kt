@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.appwifi
 
 import android.annotation.SuppressLint
@@ -11,15 +13,17 @@ import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiManager.NETWORK_STATE_CHANGED_ACTION
 import android.net.wifi.WifiManager.SCAN_RESULTS_AVAILABLE_ACTION
-import android.os.Handler
-import android.view.View
+import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
+import java.io.IOException
 
 
 @SuppressLint("StaticFieldLeak")
 object WifiController {
+
+    private lateinit var connectThread: ConnectThread
+
 
     private const val USB_SERIAL_REQUEST_INTERVAL = 30000L
     private const val USB_SERIAL_TIME_TO_CONNECT_INTERVAL = 10000L
@@ -28,13 +32,10 @@ object WifiController {
     var appContext: Context? = null
     lateinit var wifiManager: WifiManager
 
-//    private var connectThread: ConnectThread? = null
-
-    var ssidProcurada : String = ""
-
-
     var tabletAccessPointSSID : String = ""
     var tabletAccessPointPassword : String = ""
+
+    //    private var connectThread: ConnectThread? = null
 
     fun start(activity: AppCompatActivity, context: Context) {
         mainActivity = activity
@@ -48,45 +49,82 @@ object WifiController {
         context.registerReceiver(wifiEventsReceiver, filter)
     }
 
-//    enum class WIFI_AP_STATE {
-//        WIFI_AP_STATE_DISABLING, WIFI_AP_STATE_DISABLED, WIFI_AP_STATE_ENABLING, WIFI_AP_STATE_ENABLED, WIFI_AP_STATE_FAILED
-//    }
-//
-//    fun getWifiApState(): WIFI_AP_STATE {
-//        return try {
-//            val method: Method = wifiManager.getClass().getMethod("getWifiApState")
-//            var tmp = method.invoke(wifiManager) as Int
-//
-//            // Fix for Android 4
-//            if (tmp > 10) {
-//                tmp = tmp - 10
-//            }
-//            WIFI_AP_STATE::class.java.getEnumConstants().get(tmp)
-//        } catch (e: Exception) {
-//            Timber.e(e.message)
-//            WIFI_AP_STATE.WIFI_AP_STATE_FAILED
-//        }
-//    }
+    private class ConnectThread(var ssid:String, var passwd:String) : Thread() {
+        override fun run() {
+            try {
+                Timber.i(" Vai chamar connectToWPAWiFi")
+                connectToWPAWiFi(ssid, passwd)
+
+            } catch (e: Exception) {
+                Timber.d("Ocorreu uma Exception ")
+            }
+        }
+    }
+
+
+
+    class ConnectToWifiNetwork(val context: Context, val ssid:String, val passwd: String) : AsyncTask<Void, Void, String>() {
+        private var connectSuccess: Boolean = true
+
+        init {
+            Timber.i("init de ConnectToWifiNetwork")
+        }
+
+        override fun onPreExecute() {
+            super.onPreExecute()
+            Timber.i("Aguardando conexao...")
+        }
+
+        override fun onProgressUpdate(vararg values: Void?) {
+            super.onProgressUpdate(*values)
+            // TODO: ver isso
+        }
+
+        override fun doInBackground(vararg params: Void?): String? {
+            Timber.i("doInBackground")
+            try {
+                connectThread = ConnectThread(ssid, passwd)
+                connectThread.start()
+                Thread.sleep(5000)
+                connectThread.interrupt()
+            } catch (e: IOException)
+            {
+                connectSuccess = false
+                e.printStackTrace()
+            }
+            Timber.i("doInBackground return" )
+            return null
+        }
+
+        override fun onPostExecute(result: String?) {
+            super.onPostExecute(result)
+
+            Timber.i("onPostExecute" )
+
+            if ( ! connectSuccess ) {
+                Timber.i("couldn´t connect")
+            } else {
+                Timber.i("m_isConnected = true" )
+            }
+        }
+
+    }
+
 
 
     fun isWifiAccessPointEnabled(): Boolean {
         val apState =
             wifiManager.javaClass.getMethod("getWifiApState").invoke(wifiManager) as Int
 
-
-        val xxx  = wifiManager.javaClass.getMethod("getWifiApConfiguration").invoke(wifiManager) as WifiConfiguration
+        val wifiConfig  = wifiManager.javaClass.getMethod("getWifiApConfiguration").invoke(wifiManager) as WifiConfiguration
 
         Timber.i("apState = ${apState}")
 
-        val AP_STATE_DISABLING = 10
-        val AP_STATE_DISABLED = 11
-        val AP_STATE_ENABLING = 12
         val AP_STATE_ENABLED = 13
-        val AP_STATE_FAILED = 14
 
         if ( apState == AP_STATE_ENABLED ) {
-            tabletAccessPointSSID = xxx.SSID
-            tabletAccessPointPassword = xxx.preSharedKey
+            tabletAccessPointSSID = wifiConfig.SSID
+            tabletAccessPointPassword = wifiConfig.preSharedKey
             Timber.i("ssid = ${tabletAccessPointSSID}   senha[${tabletAccessPointPassword}]")
         } else {
             tabletAccessPointSSID = ""
