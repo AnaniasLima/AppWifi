@@ -49,6 +49,18 @@
         />
 
 
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/painelSSID"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone">
+
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/gl_vertical"
         android:layout_width="wrap_content"
@@ -66,8 +78,6 @@
         app:layout_constraintBottom_toTopOf="@+id/label_senha"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/gl_vertical"
-        android:enabled="false"
-        android:visibility="invisible"
         />
 
 
@@ -82,8 +92,6 @@
         app:layout_constraintBottom_toTopOf="@+id/et_senha"
         app:layout_constraintStart_toStartOf="@+id/gl_vertical"
         app:layout_constraintEnd_toEndOf="parent"
-        android:enabled="false"
-        android:visibility="invisible"
         />
 
     <TextView
@@ -95,8 +103,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/gl_vertical"
-        android:enabled="false"
-        android:visibility="invisible"
         />
 
     <EditText
@@ -110,9 +116,21 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="@+id/gl_vertical"
         app:layout_constraintEnd_toEndOf="parent"
-        android:enabled="false"
-        android:visibility="invisible"
         />
+
+        <Button
+            android:id="@+id/btn_testWifi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Teste"
+            app:layout_constraintTop_toBottomOf="@+id/et_senha"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            />
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 
 

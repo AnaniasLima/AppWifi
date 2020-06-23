@@ -19,6 +19,7 @@ class MainActivity : AppCompatActivity()  {
 
     val TAG:String="MainActivity";
     var nomeDaRedeWifi : String = ""
+    var passwordDaRedeWifi : String = ""
 
     companion object {
         const val ArduinoSSID = "8266_THERMOMETER"
@@ -40,7 +41,10 @@ class MainActivity : AppCompatActivity()  {
 
 
         btn_findArduinoAccessPoint.setOnClickListener{
-            WifiController.isSSIDAvailable(ArduinoSSID)
+            if ( WifiController.isSSIDAvailable(ArduinoSSID) ) {
+                btn_findArduinoAccessPoint.visibility =  View.GONE
+                readNetworkPassword()
+            }
         }
 
 
@@ -56,32 +60,59 @@ class MainActivity : AppCompatActivity()  {
             testCurrentWifiNetwork()
         }
 
+        btn_testWifi.setOnClickListener{
+            btn_erro.visibility = View.INVISIBLE
+            btn_erro.isEnabled = false
+            testWifiNetworkParameters()
+        }
+
     }
+
 
     fun testCurrentWifiNetwork() {
 
-        nomeDaRedeWifi = WifiController.getCurrentSSID()
-
-        if ( nomeDaRedeWifi.length == 0) {
-            btn_erro.setText("\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n")
-            btn_erro.visibility =  View.VISIBLE
-            btn_erro.isEnabled = true
-        } else if ( nomeDaRedeWifi.contains(ArduinoSSID) ) {
-            btn_erro.setText("\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o \nTermometro deverá ser conectado\n" +
-                    "(Ajuste e clique no botão)\n")
-            btn_erro.visibility =  View.VISIBLE
-            btn_erro.isEnabled = true
+        if (  WifiController.isWifiAccessPointEnabled() ) {
+            nomeDaRedeWifi = WifiController.getAccessPointSSID()
+            passwordDaRedeWifi = WifiController.getAccessPointPassword()
         } else {
-            et_ssidDaRede.setText(nomeDaRedeWifi)
+            nomeDaRedeWifi = WifiController.getCurrentSSID()
+
+            if ( nomeDaRedeWifi.length == 0) {
+                btn_erro.setText("\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n")
+                btn_erro.visibility =  View.VISIBLE
+                btn_erro.isEnabled = true
+            } else if ( nomeDaRedeWifi.contains(ArduinoSSID) ) {
+                btn_erro.setText("\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o \nTermometro deverá ser conectado\n" +
+                        "(Ajuste e clique no botão)\n")
+                btn_erro.visibility =  View.VISIBLE
+                btn_erro.isEnabled = true
+            }
+
         }
+
 
         btn_findArduinoAccessPoint.visibility =  View.VISIBLE
         btn_findArduinoAccessPoint.isEnabled = true
     }
 
 
-    fun manda()  {
-        WifiController.isSSIDAvailable("AAA")
+
+    fun testWifiNetworkParameters() {
+        var senha = et_senha.text
+        Timber.i("SSID : ${nomeDaRedeWifi}")
+        Timber.i("PASSWD : ${senha}")
+
+        btn_connect.visibility =  View.VISIBLE
+        btn_connect.isEnabled = true
+
+        WifiController.connectToWPAWiFi(nomeDaRedeWifi, senha.toString())
+    }
+
+
+    fun readNetworkPassword()  {
+        painelSSID.visibility = View.VISIBLE
+        et_ssidDaRede.setText(nomeDaRedeWifi)
+        et_senha.setText("")
     }
 
 
