@@ -4,7 +4,24 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/fundo"
     tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/btn_sucesso"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:background="@color/white"
+        android:enabled="false"
+        android:visibility="invisible"
+        android:text=""
+        android:textColor="@color/blue"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintCircleRadius="20dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 
     <Button
@@ -12,13 +29,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="10dp"
-        android:background="@color/colorAccent"
+        android:background="@color/white"
         android:enabled="false"
         android:visibility="invisible"
         android:text=""
         android:textColor="@color/red"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintCircleRadius="8dp"
+        app:layout_constraintCircleRadius="20dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -98,7 +115,7 @@
         android:id="@+id/label_senha"
         android:layout_width="49dp"
         android:layout_height="wrap_content"
-        android:text="Senha :"
+        android:text="Senha:"
         app:layout_constraintTop_toBottomOf="@+id/label_ssidDaRede"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -111,23 +128,13 @@
         android:layout_height="wrap_content"
         android:ems="10"
         android:inputType="textPassword"
-        android:text="xxxxxxxxxxxxxxx"
+        android:text="corachico"
         app:layout_constraintTop_toBottomOf="@+id/et_ssidDaRede"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="@+id/gl_vertical"
         app:layout_constraintEnd_toEndOf="parent"
         />
 
-        <Button
-            android:id="@+id/btn_testWifi"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Teste"
-            app:layout_constraintTop_toBottomOf="@+id/et_senha"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            />
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>

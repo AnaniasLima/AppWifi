@@ -90,6 +90,7 @@ public class TcpClient {
                 mBufferOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
 
                 //receives the message which the server sends back
+
                 mBufferIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
 

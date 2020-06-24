@@ -7,11 +7,11 @@ import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
 
-class MainActivity : AppCompatActivity()  {
+class MainActivity : AppCompatActivity() {
 
-    val TAG:String="MainActivity";
-    var nomeDaRedeWifi : String = ""
-    var passwordDaRedeWifi : String = ""
+    val TAG: String = "MainActivity";
+    var nomeDaRedeWifi: String = ""
+    var passwordDaRedeWifi: String = ""
 
     companion object {
         const val ArduinoSSID = "8266_THERMOMETER"
@@ -29,148 +29,113 @@ class MainActivity : AppCompatActivity()  {
         WifiController.start(this, applicationContext)
 
 
-        testCurrentWifiNetwork()
-
-
-        btn_findArduinoAccessPoint.setOnClickListener{
-            if ( WifiController.isSSIDAvailable(ArduinoSSID) ) {
-                btn_findArduinoAccessPoint.visibility =  View.GONE
+        btn_findArduinoAccessPoint.setOnClickListener {
+            if (WifiController.isSSIDAvailable(ArduinoSSID)) {
+                btn_findArduinoAccessPoint.visibility = View.GONE
                 readNetworkPassword()
             }
         }
 
 
-        btn_connect.setOnClickListener{
-            Toast.makeText( this, "Tentando conexao com :" + ArduinoSSID, Toast.LENGTH_LONG).show()
-            // connectToWPAWiFi(ArduinoSSID,ArduinoPASSWD)
+        btn_connect.setOnClickListener {
+            configureThermometer()
         }
 
+        btn_sucesso.setOnClickListener {
+            btn_sucesso.visibility = View.INVISIBLE
+            btn_sucesso.isEnabled = false
+        }
 
-        btn_erro.setOnClickListener{
+        btn_erro.setOnClickListener {
             btn_erro.visibility = View.INVISIBLE
             btn_erro.isEnabled = false
             testCurrentWifiNetwork()
         }
 
-        btn_testWifi.setOnClickListener{
-            btn_erro.visibility = View.INVISIBLE
-            btn_erro.isEnabled = false
-            testWifiNetworkParameters()
-        }
+//        btn_testWifi.setOnClickListener{
+//            btn_erro.visibility = View.INVISIBLE
+//            btn_erro.isEnabled = false
+//        }
 
+        testCurrentWifiNetwork()
     }
 
 
     fun testCurrentWifiNetwork() {
 
-        if (  WifiController.isWifiAccessPointEnabled() ) {
-            nomeDaRedeWifi = WifiController.getAccessPointSSID()
-            passwordDaRedeWifi = WifiController.getAccessPointPassword()
-        } else {
-            nomeDaRedeWifi = WifiController.getCurrentSSID()
+        var wifiConfig= WifiController.getWiFiConfig("\"" + ArduinoSSID + "\"")
 
-            if ( nomeDaRedeWifi.length == 0) {
-                btn_erro.setText("\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n")
-                btn_erro.visibility =  View.VISIBLE
+        if ( wifiConfig != null) {
+
+            // Remove ArduinoSSID da lista de redes cadastradas
+            if ( WifiController.wifiManager.removeNetwork(wifiConfig.networkId) ) {
+                Timber.e("Removendo ${MainActivity.ArduinoSSID}")
+                btn_erro.setText("\n Rede \"${ArduinoSSID}\" precisa \n Ser removida \n (Clique para validar Remoção) \n ")
+                btn_erro.visibility = View.VISIBLE
                 btn_erro.isEnabled = true
-            } else if ( nomeDaRedeWifi.contains(ArduinoSSID) ) {
-                btn_erro.setText("\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o \nTermometro deverá ser conectado\n" +
-                        "(Ajuste e clique no botão)\n")
-                btn_erro.visibility =  View.VISIBLE
+            } else {
+                Timber.e("Erro na exclusao da rede ${MainActivity.ArduinoSSID}")
+                btn_erro.setText("\n Rede \"${ArduinoSSID}\" não \n pode estar previamente cadastrada \n Exclua a rede Wifi \"${ArduinoSSID}\" \n")
+                btn_erro.visibility = View.VISIBLE
                 btn_erro.isEnabled = true
             }
 
+        } else if (WifiController.isWifiAccessPointEnabled()) {
+            nomeDaRedeWifi = WifiController.getAccessPointSSID()
+            passwordDaRedeWifi = WifiController.getAccessPointPassword()
+
+            if ( nomeDaRedeWifi.contains("unknown")) {
+                btn_erro.setText("\nRede Wifi <unknown>\n Favor tentar novamente \n (Ajuste e clique no botão)\n")
+                btn_erro.visibility = View.VISIBLE
+                btn_erro.isEnabled = true
+            }
+        } else {
+            nomeDaRedeWifi = WifiController.getCurrentSSID()
+
+            if (nomeDaRedeWifi.length == 0) {
+                btn_erro.setText("\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n")
+                btn_erro.visibility = View.VISIBLE
+                btn_erro.isEnabled = true
+            } else if (nomeDaRedeWifi.contains(ArduinoSSID)) {
+                btn_erro.setText(
+                    "\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o \nTermometro deverá ser conectado\n" +
+                            "(Ajuste e clique no botão)\n"
+                )
+                btn_erro.visibility = View.VISIBLE
+                btn_erro.isEnabled = true
+            }
         }
 
-        btn_findArduinoAccessPoint.visibility =  View.VISIBLE
-        btn_findArduinoAccessPoint.isEnabled = true
+        if (!btn_erro.isEnabled) {
+            btn_findArduinoAccessPoint.visibility = View.VISIBLE
+            btn_findArduinoAccessPoint.isEnabled = true
+        }
     }
 
 
-
-    fun testWifiNetworkParameters() {
+    fun configureThermometer() {
         var senha = et_senha.text
         Timber.i("SSID : ${nomeDaRedeWifi}")
         Timber.i("PASSWD : ${senha}")
 
-        btn_connect.visibility =  View.VISIBLE
-        btn_connect.isEnabled = true
 
-        var ccc: WifiController.ConnectToWifiNetwork = WifiController.ConnectToWifiNetwork(this, nomeDaRedeWifi, senha.toString())
+        var ccc: WifiController.ConnectToWifiNetwork =
+            WifiController.ConnectToWifiNetwork(this, nomeDaRedeWifi, senha.toString())
 
-        Timber.i("Ops Antes...." )
+        Timber.i("Ops Antes....")
 
         ccc.execute()
-        Timber.i("Ops depois...." )
-
-//        WifiController.connectToWPAWiFi(nomeDaRedeWifi, senha.toString())
+        Timber.i("Ops depois....")
     }
 
 
-    fun readNetworkPassword()  {
+    fun readNetworkPassword() {
         painelSSID.visibility = View.VISIBLE
         et_ssidDaRede.setText(nomeDaRedeWifi)
-        et_senha.setText("")
+//        et_senha.setText("")
+
+        btn_connect.visibility = View.VISIBLE
+        btn_connect.isEnabled = true
     }
 
-
-
-//    //connects to the given ssid
-//    fun connectToWPAWiFi(ssid:String,pass:String){
-//        if(WifiController.isConnectedTo(ssid)){ //see if we are already connected to the given ssid
-//            Toast.makeText( this, "Connected to"+ssid, Toast.LENGTH_LONG).show()
-//            return
-//        }
-//        val wm:WifiManager= applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-//        var wifiConfig= getWiFiConfig(ssid)
-//
-//        if ( wifiConfig == null){ //if the given ssid is not present in the WiFiConfig, create a config for it
-//            createWPAProfile(ssid,pass)
-//            wifiConfig=getWiFiConfig(ssid)
-//        }
-//        wm.disconnect()
-//        wm.enableNetwork(wifiConfig!!.networkId,true)
-//        wm.reconnect()
-//        Log.d(TAG,"intiated connection to SSID"+ssid);
-//    }
-//
-//
-//    fun getWiFiConfig(ssid: String): WifiConfiguration? {
-//        val wm:WifiManager= applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-//        val wifiList=wm.configuredNetworks
-//        for (item in wifiList){
-//            if(item.SSID != null && item.SSID.equals(ssid)){
-//                return item
-//            }
-//        }
-//        return null
-//    }
-//    fun createWPAProfile(ssid: String,pass: String){
-//        Log.d(TAG,"Saving SSID :"+ssid)
-//        val conf = WifiConfiguration()
-//        conf.SSID = ssid
-//        conf.preSharedKey = pass
-//        val wm:WifiManager= applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-//        wm.addNetwork(conf)
-//        Log.d(TAG,"saved SSID to WiFiManger")
-//    }
-//
-//    class WiFiChngBrdRcr : BroadcastReceiver(){ // shows a toast message to the user when device is connected to a AP
-//        private val TAG = "WiFiChngBrdRcr"
-//        override fun onReceive(context: Context, intent: Intent) {
-//            val networkInfo=intent.getParcelableExtra<NetworkInfo>(WifiManager.EXTRA_NETWORK_INFO)
-//            if(networkInfo.state == NetworkInfo.State.CONNECTED){
-//                val bssid=intent.getStringExtra(WifiManager.EXTRA_BSSID)
-//                Log.d(TAG, "Connected to BSSID:"+bssid)
-//                val ssid=intent.getParcelableExtra<WifiInfo>(WifiManager.EXTRA_WIFI_INFO).ssid
-//                val log="Connected to SSID:"+ssid
-//                Log.d(TAG,"Connected to SSID:"+ssid)
-//                Toast.makeText(context, log, Toast.LENGTH_SHORT).show()
-//
-//
-//            }
-//        }
-//
-//
-//    }
 }
