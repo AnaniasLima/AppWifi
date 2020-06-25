@@ -64,19 +64,72 @@ void loop()
 	} else {
 		processaModoAccessPoint();
 	}
-    Serial.printf("Stations connected = %d\n", WiFi.softAPgetStationNum());
-
-    	long xxx=0;
-	time(&xxx);
-	char aux[100];
-	sprintf(aux, "Time: %ld", xxx);
-    Serial.println(aux);
-
-  delay(3000);
 }
 
 void processaModoClient(void)
-{	static int viuAlguem=0;
+{
+	static int viuAlguem=0;
+	long entradaEmModoClient;
+	int conta = 0;
+	int pisca=0;
+	unsigned int mapaLedsModoCliente = 0b00000000001111000000000010101;
+
+	time(&entradaEmModoClient);
+    Serial.print("Entrando Modo Cliente. Time="); Serial.println(entradaEmModoClient, DEC);
+
+	while ( ++conta ) {
+		if ( (time(NULL) - entradaEmModoClient) > timeoutConexaoAsClient  ) {
+			operationMode = ACCESS_POINT;
+			break;
+		}
+
+		PiscaLed(mapaLedsModoCliente, 30, 100);
+
+		delay(100);
+		if ( (conta % 10) == 0 ) {
+	    	Serial.print("Modo Cliente. timeout="); Serial.println(timeoutConexaoAsClient - (time(NULL) - entradaEmModoClient), DEC);
+		}
+	}
+
+    Serial.println("Saindo Modo Cliente.\n");
+}
+
+void PiscaLed(unsigned int novoMapa, int qtdBits, int frequencia) 
+{	static unsigned int mapa;
+	static unsigned int valorCorrente;
+	static int qtdBitsMapeado;
+	static unsigned int conta=0;
+	static int tempo100ms;
+	static int frequenciaAnt;
+	bool ret;
+
+	// Inicia nova sequencia
+	if ( (novoMapa != mapa) || (qtdBitsMapeado != qtdBits) || (frequencia != frequenciaAnt) ) {
+		valorCorrente = mapa = novoMapa;
+		qtdBitsMapeado = qtdBits;
+		frequenciaAnt = frequencia;
+		conta=0;
+		tempo100ms = 100;
+		return;
+	}
+
+	tempo100ms -= frequencia;
+
+	if ( tempo100ms > 0 ) {
+		return;
+	}
+
+	tempo100ms = 100;
+	ret = valorCorrente & 0x1;
+	
+	if ( ++conta == qtdBitsMapeado ) {
+		conta = 0;	
+		valorCorrente = mapa;
+	} else {
+		valorCorrente = valorCorrente >> 1;
+	}
+
+	digitalWrite(BUILT_IN_LED, (ret) ? LOW: HIGH);  
 }
 
 void processaModoAccessPoint(void)
@@ -87,62 +140,64 @@ void processaModoAccessPoint(void)
 	char linhaRecebida[100];
 	int indRx;
 	int conta = 5;
+	unsigned int mapaLedsSemConexaoAtiva =  0b11111111110000000000; // 20 bits
+	unsigned int mapaLeds1ConexaoAtiva = 0b1100;	// 4 BITS
+	unsigned int mapaLedsSocketAtivo = 0b111000111000111000;	// 18 BITS
 
 	time(&entradaEmModoAccessPoint);
 
 	while ( 1 ) {
+		
 		if ( (time(NULL) - entradaEmModoAccessPoint) > timeoutConexaoAsAccessPoint  ) {
 			hardwareReset("Timeout para operar como AccessPoint");
 		}
 
-
 		if ( WiFi.softAPgetStationNum() == 0 ) {
-			if ( --conta == 0 ) {
-				// Pisca led
-				digitalWrite(BUILT_IN_LED, LOW);  delay(100); digitalWrite(BUILT_IN_LED, HIGH); delay( 100); digitalWrite(BUILT_IN_LED, LOW);  delay(100); digitalWrite(BUILT_IN_LED, HIGH);
-				delay(500); 
-				digitalWrite(BUILT_IN_LED, LOW);  delay(100); digitalWrite(BUILT_IN_LED, HIGH); delay( 100); digitalWrite(BUILT_IN_LED, LOW);  delay(100); digitalWrite(BUILT_IN_LED, HIGH);
-				delay(500); 
-				conta = 5;
-				Serial.print("softAPgetStationNum : "); Serial.println(WiFi.softAPgetStationNum(), DEC); 
-			} else {
-				delay(1000);
+			PiscaLed(mapaLedsSemConexaoAtiva, 20, 100);
+			delay(100);
+			if ( (conta++ % (5 * 10)) == 0 ) {
+				Serial.print("Conexoes ativas : "); Serial.println(WiFi.softAPgetStationNum(), DEC); 
 			}
 			continue;
 		}
 
+		Serial.print("Conexoes ativas : "); Serial.println(WiFi.softAPgetStationNum(), DEC); 
 
-		Serial.print("softAPgetStationNum"); Serial.println(WiFi.softAPgetStationNum(), DEC); 
-
+		// Vamos habilitar o Servidor de socket
 		WiFiClient client = wifiServer.available();
 
 		Serial.print("Aguardando cliente "); Serial.println((timeoutConexaoAsAccessPoint - (time(NULL) - entradaEmModoAccessPoint)), DEC); 
 		Serial.println(client, DEC); 
 
-		
+		if ( client == 0 ) {
+			PiscaLed(mapaLeds1ConexaoAtiva, 4, 100);
+			delay(100);
+			continue;
+		}
+
 		if ( client ) {
 			indRx = 0;
-			
 	    	while ( client.connected() ) {
-
+				PiscaLed(mapaLedsSocketAtivo, 18, 10);
 				if ( (time(NULL) - entradaEmModoAccessPoint) > timeoutConexaoAsAccessPoint  ) {
 					hardwareReset("Timeout para operar como AccessPoint");
 				}
-	 
 		      	while (client.available() > 0) {
 		        	char c = client.read();
-		        	
 		        	if ( indRx >= sizeof(linhaRecebida) ) {
 		        		indRx = 0;
 		        		continue;
 		        	}
-
 					// Processa linha recebida
 		        	if ( (c == '\n') || (c == '\r')  ) {
-		        		client.write("OK\n\r");
 		        		linhaRecebida[indRx] = '\0';
 		        		if ( linhaRecebida[0] == '[' ) {
 			        		if ( trataLinhaConfiguracao(linhaRecebida) > 0 ) {
+			        			char resposta[50];
+								uint8_t macAddr[6];
+								WiFi.softAPmacAddress(macAddr);
+			        			sprintf(resposta, "MAC:[%02x:%02x:%02x:%02x:%02x:%02x]\r\n", macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+				        		client.write(resposta);
 			        			// reseta processador
 								hardwareReset("Nova configuração recebida");
 			        		} else {
@@ -168,11 +223,6 @@ void processaModoAccessPoint(void)
 	    	
 		    client.stop();
 		    Serial.println("Client disconnected");
-		} else {
-			static int pisca;
-			pisca++;
-			digitalWrite(BUILT_IN_LED, (pisca & 0x1));  
-			delay(1000); 
 		}
 	}
 }
@@ -191,10 +241,13 @@ int trataLinhaConfiguracao(char *linha)
 	int indConfig=0;
 	int fim = 0;
 	int indLinha=1; // pula '[';
+	int erro = 0;
 
 	if ( linha[0] != '[') return(0); 
 	if ( tam < 10 ) return(0); 
 	if ( linha[tam -1] != ']') return(0); 
+
+	linha[tam -1] = '\0';
 	
 	p = start = &linha[1];
 	tam = 0;
@@ -211,9 +264,13 @@ int trataLinhaConfiguracao(char *linha)
 		}
 		
 		*p++ = '\0';
-		
+
+		indConfig++;
+		Serial.print("indConfig = ");  Serial.println(indConfig, DEC);
+		Serial.print("start = ");  Serial.println(start);
+
 		// Processa parametro
-		switch(++indConfig) {
+		switch(indConfig) {
 			case PARAM_CONFIG_SSID  			: strcpy(strSSID, start); break;
 			case PARAM_CONFIG_PASSWD  			: strcpy(strPasswd, start);  break;
 			case PARAM_TIMEOUT_AS_CLIENT  		: timeoutConexaoAsClient = atoi(start); break;
@@ -225,14 +282,16 @@ int trataLinhaConfiguracao(char *linha)
 		start = p;
 	}
 	
-	if ( (timeoutConexaoAsClient >= 0) || (timeoutConexaoAsClient > 60) ) {
+	if ( (timeoutConexaoAsClient <= 0) || (timeoutConexaoAsClient > 60) ) {
 		Serial.println("timeoutConexaoAsClient Invalido");
-		return(0);
+		timeoutConexaoAsClient = 20;
+		erro = 1;
 	}
 
-	if ( (timeoutConexaoAsAccessPoint >= 0) || (timeoutConexaoAsAccessPoint > 60) ) {
+	if ( (timeoutConexaoAsAccessPoint <= 0) || (timeoutConexaoAsAccessPoint > 60) ) {
 		Serial.println("timeoutConexaoAsClient Invalido");
-		return(0);
+		timeoutConexaoAsAccessPoint = 60;
+		erro = 1;
 	}
 
 	Serial.print("strSSID                     : "); Serial.println(strSSID);
@@ -240,7 +299,9 @@ int trataLinhaConfiguracao(char *linha)
 	Serial.print("timeoutConexaoAsClient      : "); Serial.println( timeoutConexaoAsClient, DEC );
 	Serial.print("timeoutConexaoAsAccessPoint : "); Serial.println( timeoutConexaoAsAccessPoint, DEC );
 
-	salvaConfigEEPROM();
+	if ( erro == 0 ) {
+		salvaConfigEEPROM();
+	}
 	return(1);
 }
 
@@ -286,8 +347,10 @@ int startConexao(void)
 
 		if ( WiFi.status() == WL_CONNECTED) {
 			strErroConexao = NULL;
+	  		Serial.print("Conectado com sucesso na rede '");
+	  		Serial.print(strSSID);
+	  		Serial.print("' IP: ");
 	  		Serial.println(WiFi.localIP());
-	  		
 	  		return(1); // Conectado a rede configurada OK
 		}
 		
@@ -342,25 +405,34 @@ Serial.println(WiFi.softAPConfig(local_IP, gateway, subnet) ? "Ready" : "Failed!
 void salvaConfigEEPROM(void)
 {
 	int indEEPROM=0;
-	int indConfig;
+	int indConfig=0;
 	char *p;
-	
-	for ( indConfig = 1; indConfig <= PARAM_CONFIG_PASSWD; indConfig++) {
+	int fim = 0;
+	char aux[30];
+
+	while ( ! fim ) {
+		indConfig++;
+		p=NULL;
 		switch(indConfig) {
-			case PARAM_CONFIG_SSID   : p = strSSID; break;
-			case PARAM_CONFIG_PASSWD : p = strPasswd; break;
-			default : p = NULL;			
+			case PARAM_CONFIG_SSID   			: p = strSSID; break;
+			case PARAM_CONFIG_PASSWD 			: p = strPasswd; break;
+			case PARAM_TIMEOUT_AS_CLIENT 		: sprintf(aux, "%d", timeoutConexaoAsClient); p = aux; break;
+			case PARAM_TIMEOUT_AS_ACCESS_POINT 	: sprintf(aux, "%d", timeoutConexaoAsAccessPoint); p = aux; break;
+			default : fim = 1;			
 		}
 
 		if ( p ) {
 			EEPROM.write(indEEPROM++, '[');
-			do {
+			while ( *p ) {
 				EEPROM.write(indEEPROM++, *p);
-			} while ( *p++ != '\0');
+				p++;
+			}
 			EEPROM.write(indEEPROM++, ']');
+			EEPROM.write(indEEPROM++, '\0');
 		}
 	}
 	
+	EEPROM.write(indEEPROM++, 0x03 ); // EOT
 	EEPROM.commit();
 }
 
@@ -376,15 +448,34 @@ void recuperaConfigEEPROM(void)
 	int indConfig=0;
 	int erro=0;
 
+
 	// Inicialização do tratamento da  EEPROM
 	EEPROM.begin(128);	// Se aumentar quantidade de parametros de configuração, precisamos aumentar esse tamanho
+
+#if 0
+delay(2000);
+Serial.println("OOOIIIII");
+while ( indEEPROM < 128 ) {
+	char aux[50];
+	c = EEPROM.read(indEEPROM++);
+	sprintf(aux, "C[%3d] = '%c' - %d", indEEPROM-1, c, c);
+	Serial.println(aux);
+	delay(20);
+}
+Serial.println("Aguarde...");
+delay(10000);
+#endif
+
+#if 0
+strSSID[0] = '\0'; 
+return;
+#endif
 
 
 	int fim = 0;
 	while ( (erro == 0) && (fim==0) ) {
 		c = EEPROM.read(indEEPROM++);
-
-		if ( c == 255 ) break;
+		if ( (c == 255) || (c == 0x03) ) break; // EOT ou -1
 
 		if ( indAux >= MAX_LEN ) {
 			erro = 1;
@@ -394,7 +485,13 @@ void recuperaConfigEEPROM(void)
 		aux[indAux++] = c;
 		
 		if ( c == 0 ) {
-			switch(++indConfig) {
+			++indConfig;
+			indAux--;
+			Serial.print("indConfig = ");  Serial.println(indConfig, DEC);
+			Serial.print("aux[indAux-1] = ");  Serial.println(aux[indAux-1], DEC);
+			Serial.print("aux = ");  Serial.println(aux);
+
+			switch(indConfig) {
 				case PARAM_CONFIG_SSID  :
 					if ( (aux[0] == '[') && (aux[indAux-1] == ']') ) {
 						aux[indAux-1] = '\0';
@@ -447,6 +544,14 @@ void recuperaConfigEEPROM(void)
 	if ( erro ) {
 		strSSID[0] = '\0';
 		strPasswd[0] = '\0';
+	} else {
+		Serial.println("\n\n\n=========== Recuperado=======");
+		Serial.print("strSSID                     : "); Serial.println(strSSID);
+		Serial.print("strPasswd                   : "); Serial.println(strPasswd);
+		Serial.print("timeoutConexaoAsClient      : "); Serial.println( timeoutConexaoAsClient, DEC );
+		Serial.print("timeoutConexaoAsAccessPoint : "); Serial.println( timeoutConexaoAsAccessPoint, DEC );
+		Serial.println("=============================");
+		
 	}
 }
 

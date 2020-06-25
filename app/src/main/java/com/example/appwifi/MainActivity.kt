@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.appwifi
 
 import android.os.Bundle

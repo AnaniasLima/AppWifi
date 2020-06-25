@@ -23,6 +23,7 @@ import timber.log.Timber
 import java.io.*
 import java.lang.Thread.sleep
 import java.net.Socket
+import java.net.UnknownHostException
 
 
 @SuppressLint("StaticFieldLeak")
@@ -83,7 +84,7 @@ object WifiController  {
                 }
 
                 Timber.i("chamando  disconnectFromWPAWiFi em 00000");
-                disconnectFromWPAWiFi(MainActivity.ArduinoSSID)
+                disconnectFromWPAWiFi()
 
                 // Remove ArduinoSSID da lista de redes cadastradas
                 if ( WifiController.wifiManager.removeNetwork(idRedeArduino) ) {
@@ -109,7 +110,10 @@ object WifiController  {
 
 
         fun configuraThermometer(ssid:String, passwd:String): String {
-            val comment = ssid + "-" + passwd + "\r\n"
+            val PARAM_TIMEOUT_AS_CLIENT = 20
+            val PARAM_TIMEOUT_AS_ACCESS_POINT = 60
+
+            val comment = String.format("[%s\t%s\t%d\t%d]\r\n", ssid, passwd, PARAM_TIMEOUT_AS_CLIENT, PARAM_TIMEOUT_AS_ACCESS_POINT)
             var response: String = ""
             var conectou = false
             var socket : Socket? = null
@@ -118,19 +122,31 @@ object WifiController  {
 
             // Aguarda para "Estabilizar a
             // tenta conectaralgumas vezes
-            for ( i in 1..20) {
+            for ( i in 1..5) {
                 try {
                     Timber.e("WWWWWWWW Tentando socket.... i=${i}")
                     sleep(500)
                     socket = Socket("192.168.4.1", 80)
-                    if ( socket != null && socket.isConnected() ) {
+
+                    if ( socket == null ) {
+                        Timber.e(" ======================== socket == null")
+                    }
+                    if ( (socket != null) && socket.isConnected() ) {
                         conectou = true
                         Timber.i("configuraThermometer conectou com i=${i}")
                     } else {
                         Timber.e("Socket not connected yet")
                     }
+                } catch (e: UnknownHostException) {
+                    Timber.e("UnknownHostException")
+                } catch (e: IOException) {
+                    Timber.e("IOException")
+                } catch (e: SecurityException) {
+                    Timber.e("SecurityException")
+                } catch (e: IllegalArgumentException) {
+                    Timber.e("IllegalArgumentException")
                 } catch (e: Exception) {
-                    Timber.e("Socket Exception")
+                    e.printStackTrace()
                 }
 
                 if ( conectou ) {
@@ -324,9 +340,9 @@ object WifiController  {
             val networkInfo= intent.getParcelableExtra<NetworkInfo>(WifiManager.EXTRA_NETWORK_INFO)
 
             if ( networkInfo != null ) {
-                Timber.i("wifiEventsReceiver recebendo uma notificacao de: action=${action}   isConnectedOrConnecting=${networkInfo.isConnectedOrConnecting}  state=${networkInfo?.state}")
+                Timber.i("wifiEventsReceiver recebendo uma notificacao de: action=${action}   isConnectedOrConnecting=${networkInfo.isConnectedOrConnecting}  state=${networkInfo.state}")
 
-                if ( networkInfo?.state == NetworkInfo.State.CONNECTED ) {
+                if ( networkInfo.state == NetworkInfo.State.CONNECTED ) {
                     val ssid= intent.getParcelableExtra<WifiInfo>(WifiManager.EXTRA_WIFI_INFO).ssid
                     val log="Connected to SSID:"+ssid
                     Timber.i("Connected to SSID:"+ssid)
@@ -335,7 +351,7 @@ object WifiController  {
 
                 }
 
-                if ( networkInfo?.state == NetworkInfo.State.DISCONNECTED ) {
+                if ( networkInfo.state == NetworkInfo.State.DISCONNECTED ) {
                     //                Toast.makeText(context, "Desconectando Wifi", Toast.LENGTH_SHORT).show()
                     Timber.i("NetworkInfo.State.DISCONNECTED ")
                     newNetwork = ""
@@ -368,12 +384,9 @@ object WifiController  {
         return null
     }
 
-    fun disconnectFromWPAWiFi(redeNaoDesejada:String) {
-        var onEntry = wifiManager.connectionInfo.ssid
+    fun disconnectFromWPAWiFi() {
 
-        Timber.i("disconnectFromWPAWiFi SSID : ${wifiManager.connectionInfo.ssid}   redeNaoDesejada=[${redeNaoDesejada}]");
-
-
+        Timber.i("disconnectFromWPAWiFi SSID: ${wifiManager.connectionInfo.ssid}   networkId=${wifiManager.connectionInfo.networkId} ");
 
         if ( wifiManager.connectionInfo.networkId == -1 ) {
             Timber.i("<<<< Saindo de disconnectFromWPAWiFi MEIO")
@@ -407,18 +420,6 @@ object WifiController  {
                     break
                 }
 
-//                if ( onEntry != wifiManager.connectionInfo.ssid) {
-//                    break
-//                }
-
-//                if ( newNetwork == "") {
-//                    break;
-//                }
-//                if ( redeNaoDesejada != "") {
-//                    if ( ! comparaSSID(newNetwork, redeNaoDesejada) ) {
-//                        break
-//                    }
-//                }
             }
             Timber.e("=====>>>> Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]")
 
@@ -426,7 +427,6 @@ object WifiController  {
             Timber.d("Ocorreu uma Exception ")
             e.printStackTrace()
         }
-
 
         Timber.i("<<<< Saindo de disconnectFromWPAWiFi FIM")
     }
@@ -446,7 +446,7 @@ object WifiController  {
         }
 
         Timber.i("chamando  disconnectFromWPAWiFi em 11111");
-        disconnectFromWPAWiFi("")
+        disconnectFromWPAWiFi()
 
         if ( ! wifiManager.enableNetwork(wifiConfig.networkId,true) ) {
             Timber.e("falha em enableNetwork SSID : ${ssid}");
