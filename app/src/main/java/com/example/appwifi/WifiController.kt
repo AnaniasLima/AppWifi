@@ -22,6 +22,7 @@ import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
 import java.io.*
 import java.lang.Thread.sleep
+import java.net.InetAddress
 import java.net.Socket
 import java.net.UnknownHostException
 
@@ -43,6 +44,7 @@ object WifiController  {
     var newNetwork = ""
     var responseFromThermometer=""
 
+    var thermometerMAC : String = ""
     //    private var connectThread: ConnectThread? = null
 
     fun start(activity: AppCompatActivity, context: Context) {
@@ -125,7 +127,7 @@ object WifiController  {
             for ( i in 1..5) {
                 try {
                     Timber.e("WWWWWWWW Tentando socket.... i=${i}")
-                    sleep(500)
+                    sleep(500) // O servidor pode estar em transição de estado
                     socket = Socket("192.168.4.1", 80)
 
                     if ( socket == null ) {
@@ -172,7 +174,11 @@ object WifiController  {
                         out.close()
                         `in`.close()
 
-                        Timber.i("response ======>>>>>  ${resposeFromServer}")
+                        // 2e:f4:32:5d:e7:c9
+                        if ( resposeFromServer.length == 17) {
+                           thermometerMAC =  resposeFromServer
+                        }
+                        Timber.i("response ======>>>>>  ${resposeFromServer}  thermometerMAC=${thermometerMAC}  ${resposeFromServer.length}")
                         if ( resposeFromServer.length > 0 ) {
                             response = resposeFromServer
                         }
@@ -258,10 +264,7 @@ object WifiController  {
                 (mainActivity as MainActivity).btn_sucesso.isEnabled = true
                 (mainActivity as MainActivity).btn_sucesso.visibility = View.VISIBLE
             }
-
-
         }
-
     }
 
 
@@ -356,16 +359,10 @@ object WifiController  {
                     Timber.i("NetworkInfo.State.DISCONNECTED ")
                     newNetwork = ""
                 }
-
             }
-
-
         }
     }
 
-    fun getSSID( ) : String {
-        return wifiManager.connectionInfo.ssid
-    }
 
 
     fun isConnectedTo(ssid: String):Boolean {
@@ -507,6 +504,84 @@ object WifiController  {
             str2 = str2.dropLast(1)
         }
         return str1==str2
+    }
+
+    private fun getSubnetAddress(address: Int): String {
+        return String.format(
+            "%d.%d.%d",
+            address and 0xff,
+            address shr 8 and 0xff,
+            address shr 16 and 0xff
+        )
+    }
+
+    val timeout = 100
+
+    fun findIpUsingMAC(context: Context, strMac:String) : String? {
+        try {
+            val mWifiInfo = wifiManager.connectionInfo
+            val subnet = getSubnetAddress(wifiManager.dhcpInfo.gateway)
+            for (i in 1..254) {
+                val host = "$subnet.$i"
+
+                var ia = InetAddress.getByName(host)
+
+                if (InetAddress.getByName(host).isReachable(timeout)) {
+                    val strLinha = getMacAddressFromIP(strMac)
+                    if  (strLinha != null) {
+                        if ( strLinha.contains(subnet) ) {
+                            val strIP = strLinha.substringBefore(' ')
+                            Timber.i("IP: [${strIP}]")
+                            if (InetAddress.getByName(strIP).isReachable(timeout)) {
+                                return(strIP)
+                            }
+                        }
+                    }
+                } else {
+                    Timber.e("❌ Not Reachable Host: $host")
+                }
+            }
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+            Timber.e("===== ERRO ${e.message}")
+        }
+
+        return null
+    }
+
+
+    fun getMacAddressFromIP(macFinding: String): String? {
+        var strRet:String? = null
+        var bufferedReader: BufferedReader? = null
+        try {
+            bufferedReader = BufferedReader(FileReader("/proc/net/arp"))
+            var line: String?
+//            while (bufferedReader.readLine().also { line = it } != null) {
+            while ( true ) {
+                line = bufferedReader.readLine()
+                if ( line == null ) break
+
+                if (line.contains(macFinding)) {
+                    strRet = line
+                    Timber.i(line)
+                    break
+                } else {
+                    Timber.i("Line: [${line}")
+                }
+            }
+        } catch (e: FileNotFoundException) {
+            e.printStackTrace()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        } finally {
+            try {
+                bufferedReader!!.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+        }
+
+        return strRet
     }
 
 

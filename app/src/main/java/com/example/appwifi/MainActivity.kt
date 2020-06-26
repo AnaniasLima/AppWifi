@@ -2,7 +2,9 @@
 
 package com.example.appwifi
 
+import android.content.Context
 import android.os.Bundle
+import android.os.StrictMode
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -59,8 +61,25 @@ class MainActivity : AppCompatActivity() {
 //            btn_erro.isEnabled = false
 //        }
 
+        btn_find_thermometer.setOnClickListener {
+            findThermometer()
+        }
+
+
         testCurrentWifiNetwork()
     }
+
+    fun findThermometer() {
+        val policy =
+            StrictMode.ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
+
+        var strIP = WifiController.findIpUsingMAC(applicationContext, WifiController.thermometerMAC)
+
+        Timber.i("IP: [${strIP}]")
+    }
+
+
 
 
     fun testCurrentWifiNetwork() {
