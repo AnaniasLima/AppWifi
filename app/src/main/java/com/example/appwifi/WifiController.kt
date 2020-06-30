@@ -22,7 +22,6 @@ import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
 import java.io.*
 import java.lang.Thread.sleep
-import java.net.InetAddress
 import java.net.Socket
 import java.net.UnknownHostException
 
@@ -30,7 +29,7 @@ import java.net.UnknownHostException
 @SuppressLint("StaticFieldLeak")
 object WifiController  {
 
-    private lateinit var connectThread: ConnectThread
+    private lateinit var connectThread: ConnectAccessPointThread
     private const val USB_SERIAL_REQUEST_INTERVAL = 30000L
     private const val USB_SERIAL_TIME_TO_CONNECT_INTERVAL = 10000L
 
@@ -42,10 +41,8 @@ object WifiController  {
     var tabletAccessPointPassword : String = ""
 
     var newNetwork = ""
-    var responseFromThermometer=""
+    var responseFromThermometer : String? = null
 
-    var thermometerMAC : String = ""
-    //    private var connectThread: ConnectThread? = null
 
     fun start(activity: AppCompatActivity, context: Context) {
         mainActivity = activity
@@ -59,7 +56,7 @@ object WifiController  {
         context.registerReceiver(wifiEventsReceiver, filter)
     }
 
-    class ConnectThread(var ssid:String, var passwd:String) : Thread(), TcpClient.OnMessageReceived {
+    class ConnectAccessPointThread(var ssid:String, var passwd:String) : Thread(), TcpClient.OnMessageReceived { //
         override fun run() {
             var idRedeArduino : Int
             try {
@@ -73,32 +70,11 @@ object WifiController  {
                     return
                 }
 
-                // Tenta se conectar  a rede ArduinoSSID
-                Timber.i("chamando  connectToWPAWiFi em 888888");
-                WifiController.connectToWPAWiFi(MainActivity.ArduinoSSID)
+                disconnectFromWPAWiFi("REDE_LOCAL")
 
-                // Verifica se conectou OK
-                if ( comparaSSID(newNetwork, MainActivity.ArduinoSSID) ) {
-                    if (WifiController.isConnectedTo(MainActivity.ArduinoSSID)) {
-                        Timber.i("Estamos conectado na rede ${MainActivity.ArduinoSSID}")
-                        responseFromThermometer = configuraThermometer(ssid, passwd )
-                    }
-                }
+                dealWithConfigArduinoAccessPoint(idRedeArduino)
 
-                Timber.i("chamando  disconnectFromWPAWiFi em 00000");
-                disconnectFromWPAWiFi()
-
-                // Remove ArduinoSSID da lista de redes cadastradas
-                if ( WifiController.wifiManager.removeNetwork(idRedeArduino) ) {
-                    Timber.i("Removida rede ${MainActivity.ArduinoSSID}")
-                } else {
-                    Timber.e("Erro na exclusao da rede ${MainActivity.ArduinoSSID}")
-                }
-
-
-                Timber.i("Vamos reconectar na rede original")
-                Timber.i("chamando  connectToWPAWiFi em 99999");
-                WifiController.connectToWPAWiFi(ssid)
+                WifiController.connectToWPAWiFi(ssid, "REDE_ORIGINAL")
 
                 if ( newNetwork == ssid ) {
                     Timber.i("Estamos de volta na rede ${ssid}")
@@ -110,91 +86,104 @@ object WifiController  {
             }
         }
 
+        fun dealWithConfigArduinoAccessPoint( idRedeArduino :Int) {
+            responseFromThermometer = null
 
-        fun configuraThermometer(ssid:String, passwd:String): String {
+            if ( WifiController.connectToWPAWiFi(MainActivity.ArduinoSSID, "REDE_ARDUINO")) {
+                if (WifiController.isConnectedTo(MainActivity.ArduinoSSID)) {
+                    Timber.i("Estamos conectado na rede ${MainActivity.ArduinoSSID}")
+                    responseFromThermometer = configuraThermometer(ssid, passwd )
+                }
+                disconnectFromWPAWiFi("ARDUINO")
+            }
+
+            // Remove ArduinoSSID da lista de redes cadastradas
+            if ( WifiController.wifiManager.removeNetwork(idRedeArduino) ) {
+                Timber.i("Removida rede ${MainActivity.ArduinoSSID}")
+            } else {
+                Timber.e("Erro na exclusao da rede ${MainActivity.ArduinoSSID}")
+            }
+
+            return
+        }
+
+        fun configuraThermometer(ssid:String, passwd:String): String? {
             val PARAM_TIMEOUT_AS_CLIENT = 20
             val PARAM_TIMEOUT_AS_ACCESS_POINT = 60
+            val PARAM_TIMEOUT_CLIENT_WAITING_SOCKET = 240
 
-            val comment = String.format("[%s\t%s\t%d\t%d]\r\n", ssid, passwd, PARAM_TIMEOUT_AS_CLIENT, PARAM_TIMEOUT_AS_ACCESS_POINT)
-            var response: String = ""
-            var conectou = false
-            var socket : Socket? = null
+            val comment = String.format("CONFIG:[%s\t%s\t%d\t%d\t%d]\r\n", ssid, passwd, PARAM_TIMEOUT_AS_CLIENT, PARAM_TIMEOUT_AS_ACCESS_POINT, PARAM_TIMEOUT_CLIENT_WAITING_SOCKET)
+            var response: String? = null
+            var socket : Socket?
+            val host = "192.168.4.1"
+            val port = 81
 
             Timber.i("Entrando em configuraThermometer")
 
-            // Aguarda para "Estabilizar a
-            // tenta conectaralgumas vezes
-            for ( i in 1..5) {
-                try {
-                    Timber.e("WWWWWWWW Tentando socket.... i=${i}")
-                    sleep(500) // O servidor pode estar em transição de estado
-                    socket = Socket("192.168.4.1", 80)
-
-                    if ( socket == null ) {
-                        Timber.e(" ======================== socket == null")
-                    }
-                    if ( (socket != null) && socket.isConnected() ) {
-                        conectou = true
-                        Timber.i("configuraThermometer conectou com i=${i}")
-                    } else {
-                        Timber.e("Socket not connected yet")
-                    }
-                } catch (e: UnknownHostException) {
-                    Timber.e("UnknownHostException")
-                } catch (e: IOException) {
-                    Timber.e("IOException")
-                } catch (e: SecurityException) {
-                    Timber.e("SecurityException")
-                } catch (e: IllegalArgumentException) {
-                    Timber.e("IllegalArgumentException")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-                if ( conectou ) {
-                    break
-                }
+            socket = openSocket(host, port)
+            if (  socket != null ) {
+                response = dealWithOpenSocket(socket, comment)
+                socket.close()
             }
 
-            if ( conectou && (socket != null) ) {
-                try {
-                    if (socket.isConnected()) {
-                        val out = PrintWriter(
-                            BufferedWriter(
-                                OutputStreamWriter(socket.getOutputStream())
-                            ), true
-                        )
-                        val `in` = BufferedReader(
-                            InputStreamReader(socket.getInputStream())
-                        )
-                        out.write(comment)
-                        out.flush()
-                        Timber.i("Calling Write ${comment}")
-                        val resposeFromServer: String = `in`.readLine()
-                        out.close()
-                        `in`.close()
-
-                        // 2e:f4:32:5d:e7:c9
-                        if ( resposeFromServer.length == 17) {
-                           thermometerMAC =  resposeFromServer
-                        }
-                        Timber.i("response ======>>>>>  ${resposeFromServer}  thermometerMAC=${thermometerMAC}  ${resposeFromServer.length}")
-                        if ( resposeFromServer.length > 0 ) {
-                            response = resposeFromServer
-                        }
-                        socket.close()
-                    } else {
-                        Timber.e( "Socket is not connected")
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-
-            }
             return response
         }
+
+
+        private fun openSocket(host: String, porta: Int) : Socket? {
+            var socket : Socket? = null
+            try {
+                Timber.e("WWWWWWWW Tentando socket")
+                socket = Socket(host, porta)
+
+                if ( socket.isConnected() ) {
+                    Timber.i("Conectou Socket")
+                } else {
+                    socket.close()
+                    socket=null
+                }
+            } catch (e: UnknownHostException) {
+                Timber.e("UnknownHostException")
+            } catch (e: IOException) {
+                Timber.e("IOException")
+            } catch (e: SecurityException) {
+                Timber.e("SecurityException")
+            } catch (e: IllegalArgumentException) {
+                Timber.e("IllegalArgumentException")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            return socket
+        }
+
+        private fun dealWithOpenSocket(socket : Socket, demanda: String) : String? {
+            var resposeFromServer : String? = null
+            try {
+                if (socket.isConnected()) {
+                    val out = PrintWriter(
+                        BufferedWriter(OutputStreamWriter(socket.getOutputStream()) ), true)
+                    val `in` = BufferedReader(InputStreamReader(socket.getInputStream()))
+                    out.write(demanda)
+                    out.flush()
+                    Timber.i("Calling Write ${demanda}")
+                    resposeFromServer = `in`.readLine()
+                    out.close()
+                    `in`.close()
+                    Timber.i("response ======>>>>>  [${resposeFromServer}]  Tam: ${resposeFromServer.length}")
+                } else {
+                    Timber.e( "Socket is not connected")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+
+            return resposeFromServer
+        }
+
+
 
         override fun messageReceived(pkt: String) {
             Timber.i( "Recebida mensagem : ${pkt}")
@@ -203,17 +192,17 @@ object WifiController  {
     }
 
 
-
-    class ConnectToWifiNetwork(val context: Context, val ssid:String, val passwd: String) : AsyncTask<Void, Void, String>() {
+    class ConnectToWifiAccessPointNetwork(val context: Context, val ssid:String, val passwd: String) : AsyncTask<Int, Void, String>() {
         private var connectSuccess: Boolean = true
 
         init {
-            Timber.i("init de ConnectToWifiNetwork")
+            Timber.i("init de ConnectToWifiAccessPointNetwork")
         }
 
         override fun onPreExecute() {
             super.onPreExecute()
             Timber.i("Aguardando conexao...")
+            (WifiController.mainActivity as MainActivity).progressBar.visibility = View.VISIBLE
         }
 
         override fun onProgressUpdate(vararg values: Void?) {
@@ -221,12 +210,12 @@ object WifiController  {
             // TODO: ver isso
         }
 
-        override fun doInBackground(vararg params: Void?): String? {
-            Timber.i("doInBackground")
+        override fun doInBackground(vararg params: Int?): String? {
+            val p1 = params[0] ?: 0
+            Timber.i("doInBackground ${p1}")
             try {
-
                 var esperando = 10000
-                connectThread = ConnectThread(ssid, passwd)
+                connectThread = ConnectAccessPointThread(ssid, passwd)
                 connectThread.start()
 
                 while ( esperando > 0 ) {
@@ -254,15 +243,10 @@ object WifiController  {
             if ( ! connectSuccess ) {
                 Timber.i("couldn´t connect")
             } else {
-                if ( responseFromThermometer != "") {
-                    Timber.i("responseFromThermometer = ${responseFromThermometer}" )
+                if ( (responseFromThermometer?.length ?: 0) == 17 ) {
+                    // 2e:f4:32:5d:e7:c9
+                    (WifiController.mainActivity as MainActivity).processaNovoMac(responseFromThermometer!!)
                 }
-            }
-
-            mainActivity?.runOnUiThread {
-                (mainActivity as MainActivity).btn_sucesso.text = responseFromThermometer
-                (mainActivity as MainActivity).btn_sucesso.isEnabled = true
-                (mainActivity as MainActivity).btn_sucesso.visibility = View.VISIBLE
             }
         }
     }
@@ -381,9 +365,9 @@ object WifiController  {
         return null
     }
 
-    fun disconnectFromWPAWiFi() {
+    fun disconnectFromWPAWiFi(tag:String ) {
 
-        Timber.i("disconnectFromWPAWiFi SSID: ${wifiManager.connectionInfo.ssid}   networkId=${wifiManager.connectionInfo.networkId} ");
+        Timber.i("disconnectFromWPAWiFi from ${tag} SSID: ${wifiManager.connectionInfo.ssid}   networkId=${wifiManager.connectionInfo.networkId} ");
 
         if ( wifiManager.connectionInfo.networkId == -1 ) {
             Timber.i("<<<< Saindo de disconnectFromWPAWiFi MEIO")
@@ -430,24 +414,19 @@ object WifiController  {
 
 
     //connects to the given ssid
-    fun connectToWPAWiFi(ssid:String){
+    fun connectToWPAWiFi(ssid:String, tag:String) : Boolean{
+
+        Timber.i("entrando em connectToWPAWiFi from ${tag}: ${ssid}");
 
         var wifiConfig= getWiFiConfig("\"" + ssid + "\"")
-
-        Timber.i("entrando em connectToWPAWiFi: ${ssid}");
-
-
         if ( wifiConfig == null ) {
             Timber.i("Não localizou SSID: ${ssid}");
-            return
+            return false
         }
-
-        Timber.i("chamando  disconnectFromWPAWiFi em 11111");
-        disconnectFromWPAWiFi()
 
         if ( ! wifiManager.enableNetwork(wifiConfig.networkId,true) ) {
             Timber.e("falha em enableNetwork SSID : ${ssid}");
-            return
+            return false
         }
 
         newNetwork = ""
@@ -455,7 +434,7 @@ object WifiController  {
         Timber.i("chamando reconnect SSID : ${ssid}");
         if ( ! wifiManager.reconnect() ) {
             Timber.e("falha em reconnect SSID : ${ssid}");
-            return
+            return false
         }
 
         // Aguarda sinalização da nova rede conectada
@@ -467,12 +446,14 @@ object WifiController  {
             sleep(100)
         }
 
-
         if ( comparaSSID(wifiManager.connectionInfo.ssid, ssid) ) {
             Timber.i("=====>>>> Sucesso ao conectar em  SSID : ${ssid}");
         } else {
             Timber.e("=====>>>> Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]")
+            return false
         }
+
+        return true
     }
 
     fun createWPAProfile(ssid: String,pass: String) : Int{
@@ -505,85 +486,6 @@ object WifiController  {
         }
         return str1==str2
     }
-
-    private fun getSubnetAddress(address: Int): String {
-        return String.format(
-            "%d.%d.%d",
-            address and 0xff,
-            address shr 8 and 0xff,
-            address shr 16 and 0xff
-        )
-    }
-
-    val timeout = 100
-
-    fun findIpUsingMAC(context: Context, strMac:String) : String? {
-        try {
-            val mWifiInfo = wifiManager.connectionInfo
-            val subnet = getSubnetAddress(wifiManager.dhcpInfo.gateway)
-            for (i in 1..254) {
-                val host = "$subnet.$i"
-
-                var ia = InetAddress.getByName(host)
-
-                if (InetAddress.getByName(host).isReachable(timeout)) {
-                    val strLinha = getMacAddressFromIP(strMac)
-                    if  (strLinha != null) {
-                        if ( strLinha.contains(subnet) ) {
-                            val strIP = strLinha.substringBefore(' ')
-                            Timber.i("IP: [${strIP}]")
-                            if (InetAddress.getByName(strIP).isReachable(timeout)) {
-                                return(strIP)
-                            }
-                        }
-                    }
-                } else {
-                    Timber.e("❌ Not Reachable Host: $host")
-                }
-            }
-        } catch (e: java.lang.Exception) {
-            e.printStackTrace()
-            Timber.e("===== ERRO ${e.message}")
-        }
-
-        return null
-    }
-
-
-    fun getMacAddressFromIP(macFinding: String): String? {
-        var strRet:String? = null
-        var bufferedReader: BufferedReader? = null
-        try {
-            bufferedReader = BufferedReader(FileReader("/proc/net/arp"))
-            var line: String?
-//            while (bufferedReader.readLine().also { line = it } != null) {
-            while ( true ) {
-                line = bufferedReader.readLine()
-                if ( line == null ) break
-
-                if (line.contains(macFinding)) {
-                    strRet = line
-                    Timber.i(line)
-                    break
-                } else {
-                    Timber.i("Line: [${line}")
-                }
-            }
-        } catch (e: FileNotFoundException) {
-            e.printStackTrace()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        } finally {
-            try {
-                bufferedReader!!.close()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-        }
-
-        return strRet
-    }
-
 
 }
 
