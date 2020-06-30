@@ -19,10 +19,6 @@ class MainActivity : AppCompatActivity() {
     var passwordDaRedeWifi: String = ""
     var sharedPreferences : SharedPreferences? = null
 
-    val runnableProcessIPSearch = Runnable {
-        Timber.i("Runnable thermometerIP=[${thermometerIP}]")
-        findIPFinished()
-    }
 
 
     companion object {
@@ -56,6 +52,10 @@ class MainActivity : AppCompatActivity() {
             findAccessPoint()
         }
 
+        btn_findIP.setOnClickListener {
+            findIP(TIMEOUT_TO_FIND_IP)
+        }
+
 
         btn_connect.setOnClickListener {
             configureThermometer()
@@ -68,10 +68,6 @@ class MainActivity : AppCompatActivity() {
 
         btn_startupError.setOnClickListener {
             testCurrentWifiNetwork()
-        }
-
-        btn_findIP.setOnClickListener {
-            findIP(TIMEOUT_TO_FIND_IP)
         }
 
         testCurrentWifiNetwork()
@@ -165,23 +161,19 @@ class MainActivity : AppCompatActivity() {
     fun findIP(timeout : Int) {
         findPanel.visibility = View.VISIBLE
         btn_findIP.visibility = View.VISIBLE
-        btn_findIP.setText(" Localizando MAC \n ${thermometerMacAddress} \nAguarde...\n")
-        startFindThermometerIP(thermometerMacAddress, timeout)
-    }
-
-    fun startFindThermometerIP(macToSearch : String, segundos : Int) {
-        val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
-        StrictMode.setThreadPolicy(policy)
+        btn_findIP.setText(" Localizando MAC \n ${thermometerMacAddress} \nAguarde...")
+        btn_findIP.isEnabled = false
 
         if ( ! FindIPUsingMac.isRunning ) {
-            FindIPUsingMac(this, macToSearch, segundos , runnableProcessIPSearch).execute(456)
+            FindIPUsingMac(this, thermometerMacAddress, timeout , runnableIPSearchFinished).execute(456)
         }
-
     }
 
-    fun findIPFinished() {
-        Timber.i("findIPFinished thermometerIP=[${thermometerIP}]")
+
+    val runnableIPSearchFinished = Runnable {
+        Timber.i("Runnable thermometerIP=[${thermometerIP}]")
         if ( thermometerIP == "" ) {
+            findPanel.visibility = View.VISIBLE
             btn_findIP.setText("Localizar Mac\n${thermometerMacAddress}")
             btn_findIP.isEnabled = true
         } else {
@@ -189,25 +181,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+
     //-------------------------------------------------
     // Find AccessPoint
     //-------------------------------------------------
-
     fun findAccessPoint() {
         findPanel.visibility = View.VISIBLE
         btn_findArduinoAccessPoint.visibility = View.VISIBLE
         btn_findArduinoAccessPoint.setText(" Localizando \n Access Point \nAguarde...\n")
-        startFindAccessPoint(ArduinoSSID)
-    }
-//    fun findAccessPointProgress() {
-//    }
+        btn_findIP.isEnabled = false
 
-
-    fun startFindAccessPoint(ssid : String) {
-        if (WifiController.isSSIDAvailable(ssid)) {
+        if (WifiController.isSSIDAvailable(ArduinoSSID)) {
             btn_findArduinoAccessPoint.visibility = View.GONE
             readNetworkPassword()
         }
+
     }
 
 

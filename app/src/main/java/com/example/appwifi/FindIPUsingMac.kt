@@ -5,6 +5,7 @@ package com.example.appwifi
 import android.content.Context
 import android.graphics.Color
 import android.os.AsyncTask
+import android.os.StrictMode
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
@@ -50,6 +51,10 @@ class FindIPUsingMac(activity: MainActivity, val macProcurado:String, segundos :
     override fun doInBackground(vararg params: Int?): String {
         var locateThread: LocateIpThread = LocateIpThread(macProcurado)
         val p1 = params[0] ?: 0
+        val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
+
+
         Timber.i("doInBackground p1=${p1}")
         try {
             tempoDecorrido = 0
@@ -111,6 +116,7 @@ class FindIPUsingMac(activity: MainActivity, val macProcurado:String, segundos :
         activity.label_progressBar.visibility = View.INVISIBLE
 
         MainActivity.thermometerIP = result
+
         MainActivity.thermometerHandler.post(finalTask)
     }
 
