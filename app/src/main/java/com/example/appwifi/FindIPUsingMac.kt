@@ -2,12 +2,10 @@
 
 package com.example.appwifi
 
-import android.content.Context
 import android.graphics.Color
 import android.os.AsyncTask
 import android.os.StrictMode
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
 import java.io.BufferedReader
@@ -20,8 +18,8 @@ import java.net.InetAddress
 
 class FindIPUsingMac(activity: MainActivity, val macProcurado:String, segundos : Int, var finalTask : Runnable) : AsyncTask<Int, Int, String>() {
     private var activityWeakReference : WeakReference<MainActivity> = WeakReference(activity)
-    private var tempoDecorrido = 0
-    private var tempoEspera = segundos * 1000
+    private var tempoDecorrido = 0L
+    private var tempoEspera = segundos * 1000L
 
     companion object {
         var response : String = ""
@@ -54,18 +52,21 @@ class FindIPUsingMac(activity: MainActivity, val macProcurado:String, segundos :
         val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
         StrictMode.setThreadPolicy(policy)
 
+        val startTime = System.currentTimeMillis()
 
         Timber.i("doInBackground p1=${p1}")
         try {
             tempoDecorrido = 0
             locateThread.start()
+
+            tempoDecorrido = System.currentTimeMillis() - startTime
             while ( tempoDecorrido < tempoEspera ) {
                 if ( !locateThread.isAlive) {
                     break;
                 }
                 Thread.sleep(100)
-                tempoDecorrido += 100
-                publishProgress((tempoDecorrido * 100) / tempoEspera, LocateIpThread.ipProcurado)
+                tempoDecorrido = System.currentTimeMillis() - startTime
+                publishProgress(((tempoDecorrido * 100L) / tempoEspera).toInt(), LocateIpThread.ipProcurado)
             }
             locateThread.interrupt()
             Thread.sleep(100)

@@ -15,6 +15,7 @@ import android.net.wifi.WifiManager
 import android.net.wifi.WifiManager.NETWORK_STATE_CHANGED_ACTION
 import android.net.wifi.WifiManager.SCAN_RESULTS_AVAILABLE_ACTION
 import android.os.AsyncTask
+import android.os.StrictMode
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -111,18 +112,26 @@ object WifiController  {
             val PARAM_TIMEOUT_AS_CLIENT = 20
             val PARAM_TIMEOUT_AS_ACCESS_POINT = 60
             val PARAM_TIMEOUT_CLIENT_WAITING_SOCKET = 240
+            val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
+            StrictMode.setThreadPolicy(policy)
 
-            val comment = String.format("CONFIG:[%s\t%s\t%d\t%d\t%d]\r\n", ssid, passwd, PARAM_TIMEOUT_AS_CLIENT, PARAM_TIMEOUT_AS_ACCESS_POINT, PARAM_TIMEOUT_CLIENT_WAITING_SOCKET)
             var response: String? = null
             var socket : Socket?
-            val host = "192.168.4.1"
-            val port = 81
+            val host = MainActivity.ArduinoAccessPointIP
+            val port = MainActivity.ArduinoAccessPointPort
+            var commandToSend : String
+
+            if ( ssid == "") {
+                commandToSend= "ZERA\r\n"
+            } else {
+                commandToSend = String.format("CONFIG:[%s\t%s\t%d\t%d\t%d]\r\n", ssid, passwd, PARAM_TIMEOUT_AS_CLIENT, PARAM_TIMEOUT_AS_ACCESS_POINT, PARAM_TIMEOUT_CLIENT_WAITING_SOCKET)
+            }
 
             Timber.i("Entrando em configuraThermometer")
 
             socket = openSocket(host, port)
             if (  socket != null ) {
-                response = dealWithOpenSocket(socket, comment)
+                response = dealWithOpenSocket(socket, commandToSend)
                 socket.close()
             }
 
@@ -133,7 +142,8 @@ object WifiController  {
         private fun openSocket(host: String, porta: Int) : Socket? {
             var socket : Socket? = null
             try {
-                Timber.e("WWWWWWWW Tentando socket")
+                Timber.e("WWWWWWWW Tentando socket  host=${host}, porta=${porta}")
+                sleep(300)
                 socket = Socket(host, porta)
 
                 if ( socket.isConnected() ) {
@@ -217,7 +227,7 @@ object WifiController  {
                 var esperando = 10000
                 connectThread = ConnectAccessPointThread(ssid, passwd)
                 connectThread.start()
-
+//WWW
                 while ( esperando > 0 ) {
                     Thread.sleep(100)
                     if ( ! connectThread.isAlive ) {
@@ -304,7 +314,10 @@ object WifiController  {
     fun isSSIDAvailable(ssid:String) : Boolean {
         val mScanResults: List<ScanResult> = wifiManager.getScanResults()
         var ssidLocalizado = false
+        val policy = StrictMode.ThreadPolicy.Builder().permitAll().build()
+        StrictMode.setThreadPolicy(policy)
 
+        Timber.i("Entrando em isSSIDAvailable")
         for ( item in mScanResults ) {
             Timber.i(item.SSID)
             if ( ssid == item.SSID)  {
@@ -317,6 +330,7 @@ object WifiController  {
             wifiManager.startScan()
         }
 
+        Timber.i("Saindo de isSSIDAvailable ssidLocalizado=[${ssidLocalizado}]")
         return ssidLocalizado
     }
 
@@ -381,6 +395,8 @@ object WifiController  {
             // Aguarda sinalização da desconexao
             Timber.i("Aguardando desconexao...");
             var conta=3000
+
+            // WWW
             while (  conta > 0 ) {
 
                 Timber.e("===== Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]  wifiManager.connectionInfo.networkId=${wifiManager.connectionInfo.networkId}");
@@ -439,7 +455,8 @@ object WifiController  {
 
         // Aguarda sinalização da nova rede conectada
         Timber.i("Sucesso em reconnect SSID : ${ssid}");
-        var conta=5000
+        var conta=10000
+// WWW
         while (  (newNetwork == "")  and (conta > 0)) {
             Timber.e("===== Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]     networkId=${wifiManager.connectionInfo.networkId}");
             conta -= 100

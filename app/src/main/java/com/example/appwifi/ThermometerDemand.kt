@@ -1,19 +1,17 @@
 package com.example.appwifi
 
-import android.content.Context
 import android.os.AsyncTask
-import android.view.View
-import androidx.appcompat.app.AppCompatActivity
-import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
 import java.io.*
+import java.lang.ref.WeakReference
 import java.net.Socket
 import java.net.UnknownHostException
 
 
-class ThermometerDemand(val demanda:String, val host:String, val portNumber:Int, var timeout: Long, var finalTask : Runnable) : AsyncTask<Void, Void, String>()  {
+class ThermometerDemand(activity: MainActivity, val demanda:String, val host:String, val portNumber:Int, var timeout: Int, var finalTask : Runnable) : AsyncTask<Int, Void, String>()  {
     private var connectSuccess: Boolean = true
     private lateinit var demandThread: DemandThread
+    private var activityWeakReference : WeakReference<MainActivity> = WeakReference(activity)
 
 //    var host = ""
 //    var porta : Int = 0
@@ -26,7 +24,9 @@ class ThermometerDemand(val demanda:String, val host:String, val portNumber:Int,
 
     override fun onPreExecute() {
         super.onPreExecute()
+
         Timber.i("Demanda solicitada: ${demanda}...")
+
         response = null
         errorType = 0
     }
@@ -36,23 +36,29 @@ class ThermometerDemand(val demanda:String, val host:String, val portNumber:Int,
         // TODO: ver isso
     }
 
-    override fun doInBackground(vararg params: Void?): String? {
-        Timber.i("doInBackground")
+    override fun doInBackground(vararg params: Int?): String? {
+
+        val startTime = System.currentTimeMillis()
+        val endTime = startTime + timeout
+        Timber.i("doInBackground timeout = ${timeout}  startTime=${startTime}   endTime=${endTime}")
+
         var responseFromSocket : String? = null
         try {
             demandThread = DemandThread(host, portNumber, demanda)
 
+            Timber.i("doInBackground DemandThread start" )
             demandThread.start()
 
-            while ( timeout > 0 ) {
+            while ( System.currentTimeMillis() <  endTime) {
                 Thread.sleep(20)
                 if ( ! demandThread.isAlive ) {
                     responseFromSocket = demandThread.serverResponse
+                    Timber.i("doInBackground responseFromSocket = ${responseFromSocket}")
                     break;
                 }
-                timeout -= 20
             }
             if ( demandThread.isAlive ) {
+                Timber.i("doInBackground interrupt")
                 demandThread.interrupt()
             }
         } catch (e: IOException)
@@ -66,19 +72,19 @@ class ThermometerDemand(val demanda:String, val host:String, val portNumber:Int,
     }
 
     override fun onPostExecute(result: String?) {
+        var activity= activityWeakReference.get()
+
         super.onPostExecute(result)
 
+        Timber.i("onPostExecute responseFromThermometer=${result}" )
         response = result
 
-        Timber.i("onPostExecute responseFromThermometer=${response}" )
+        if ( activity == null || activity.isFinishing()) {
+            return
+        }
 
+        activity.fxFimConsulta(result)
         MainActivity.thermometerHandler.post(finalTask)
-
-//        activity.runOnUiThread {
-//            (activity as MainActivity).btn_sucesso.text = response
-//            (activity as MainActivity).btn_sucesso.isEnabled = true
-//            (activity as MainActivity).btn_sucesso.visibility = View.VISIBLE
-//        }
     }
 
 
@@ -103,7 +109,7 @@ class ThermometerDemand(val demanda:String, val host:String, val portNumber:Int,
 private fun openSocket(host: String, porta: Int) : Socket? {
     var socket : Socket? = null
     try {
-        Timber.e("WWWWWWWW Tentando socket")
+        Timber.e("WWWWWWWW Tentando socket host=${host}  porta=${porta}")
         socket = Socket(host, porta)
 
         if ( socket.isConnected() ) {
@@ -135,6 +141,9 @@ private fun dealWithOpenSocket(socket : Socket, demanda: String) : String? {
                 BufferedWriter(OutputStreamWriter(socket.getOutputStream()) ), true)
             val `in` = BufferedReader(InputStreamReader(socket.getInputStream()))
             out.write(demanda)
+            if ( ! demanda.contains("\n") ) {
+                out.write("\n")
+            }
             out.flush()
             Timber.i("Calling Write ${demanda}")
             resposeFromServer = `in`.readLine()

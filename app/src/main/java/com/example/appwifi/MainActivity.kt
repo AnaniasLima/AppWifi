@@ -4,9 +4,9 @@ package com.example.appwifi
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
-import android.os.StrictMode
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
@@ -24,9 +24,13 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val ArduinoSSID = "8266_THERMOMETER"
         const val ArduinoPASSWD = "nana12345"
-        const val TIMEOUT_TO_FIND_IP = 10
+        const val ArduinoAccessPointIP = "192.168.4.1"
+        const val ArduinoAccessPointPort = 81
+        const val ThermometerPort = 80
+        const val TIMEOUT_TO_FIND_IP = 15
         var thermometerMacAddress : String = ""
         var thermometerIP : String = ""
+        var temperaturaMedida : Float = 36.0F
         var thermometerHandler = Handler()
         var activity: AppCompatActivity? = null
     }
@@ -57,13 +61,16 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-        btn_connect.setOnClickListener {
+        btn_configThermometer.setOnClickListener {
             configureThermometer()
         }
 
-        btn_sucesso.setOnClickListener {
-            btn_sucesso.visibility = View.INVISIBLE
-            btn_sucesso.isEnabled = false
+        btn_resetThermometer.setOnClickListener {
+            WifiController.ConnectToWifiAccessPointNetwork(this, "", "").execute(123)
+        }
+
+        btn_consulta.setOnClickListener {
+            consultaTemperatura(3000)
         }
 
         btn_startupError.setOnClickListener {
@@ -155,6 +162,34 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+
+    //-------------------------------------------------
+    // Consulta
+    //-------------------------------------------------
+    fun consultaTemperatura(timeout : Int) {
+        btn_consulta.setText("Aguarde...")
+        btn_consulta.isEnabled = false
+        tv_lastResult.text = ""
+
+        if ( ! FindIPUsingMac.isRunning ) {
+            ThermometerDemand(this, "TEMP", thermometerIP, ThermometerPort, timeout, runnableFimConsultaTemperatura).execute(1)
+        }
+    }
+
+    fun fxFimConsulta(temp:String?) {
+        if ( temp != null) {
+            Timber.i("fxFimConsulta=${temp}")
+        }
+    }
+
+    val runnableFimConsultaTemperatura = Runnable {
+        Timber.i("Runnable runnableFimConsultaTemperatura=${temperaturaMedida}")
+
+        btn_consulta.isEnabled = true
+        tv_lastResult.text = ThermometerDemand.response
+    }
+
+
     //-------------------------------------------------
     // Find IP
     //-------------------------------------------------
@@ -177,7 +212,8 @@ class MainActivity : AppCompatActivity() {
             btn_findIP.setText("Localizar Mac\n${thermometerMacAddress}")
             btn_findIP.isEnabled = true
         } else {
-            btn_findIP.setText(thermometerIP)
+            findPanel.visibility = View.GONE
+            testPanel.visibility = View.VISIBLE
         }
     }
 
@@ -190,11 +226,15 @@ class MainActivity : AppCompatActivity() {
         findPanel.visibility = View.VISIBLE
         btn_findArduinoAccessPoint.visibility = View.VISIBLE
         btn_findArduinoAccessPoint.setText(" Localizando \n Access Point \nAguarde...\n")
-        btn_findIP.isEnabled = false
+        btn_findArduinoAccessPoint.isEnabled = false
 
         if (WifiController.isSSIDAvailable(ArduinoSSID)) {
-            btn_findArduinoAccessPoint.visibility = View.GONE
+            btn_findArduinoAccessPoint.visibility = View.INVISIBLE
+            findPanel.visibility = View.GONE
             readNetworkPassword()
+        } else {
+            btn_findArduinoAccessPoint.setText(" Access Point \n ${ArduinoSSID} \n Não localizado\n Verifique Permissões \n Clique para \n tentar localizar ")
+            btn_findArduinoAccessPoint.isEnabled = true
         }
 
     }
@@ -216,23 +256,21 @@ class MainActivity : AppCompatActivity() {
         Timber.i("SSID : ${nomeDaRedeWifi}")
         Timber.i("PASSWD : ${senha}")
 
-        var ccc: WifiController.ConnectToWifiAccessPointNetwork =
-            WifiController.ConnectToWifiAccessPointNetwork(this, nomeDaRedeWifi, senha.toString())
-
-        Timber.i("Ops Antes....")
-
-        ccc.execute(123)
-        Timber.i("Ops depois....")
+        WifiController.ConnectToWifiAccessPointNetwork(this, nomeDaRedeWifi, senha.toString()).execute(123)
     }
 
 
     fun readNetworkPassword() {
-        painelSSID.visibility = View.VISIBLE
+        configPanel.visibility = View.VISIBLE
         et_ssidDaRede.setText(nomeDaRedeWifi)
+        et_ssidDaRede.isEnabled = false
 //        et_senha.setText("")
 
-        btn_connect.visibility = View.VISIBLE
-        btn_connect.isEnabled = true
+        btn_configThermometer.visibility = View.VISIBLE
+        btn_configThermometer.isEnabled = true
+
+        btn_resetThermometer.visibility = View.VISIBLE
+        btn_resetThermometer.isEnabled = true
     }
 
 }
