@@ -28,6 +28,7 @@ class MainActivity : AppCompatActivity() {
         const val ArduinoAccessPointPort = 81
         const val ThermometerPort = 80
         const val TIMEOUT_TO_FIND_IP = 15
+        const val TIMEOUT_TO_CONNECT_ACCESS_POINT = 10
         var thermometerMacAddress : String = ""
         var thermometerIP : String = ""
         var temperaturaMedida : Float = 36.0F
@@ -51,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         WifiController.start(this, applicationContext)
+        ScreenLog.start(this, applicationContext, log_recycler_view, history_recycler_view)
 
         btn_findArduinoAccessPoint.setOnClickListener {
             findAccessPoint()
@@ -66,7 +68,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btn_resetThermometer.setOnClickListener {
-            WifiController.ConnectToWifiAccessPointNetwork(this, "", "").execute(123)
+            WifiController.ConnectToWifiAccessPointNetwork(this, "", "").execute(TIMEOUT_TO_CONNECT_ACCESS_POINT)
         }
 
         btn_consulta.setOnClickListener {
@@ -172,21 +174,22 @@ class MainActivity : AppCompatActivity() {
         tv_lastResult.text = ""
 
         if ( ! FindIPUsingMac.isRunning ) {
-            ThermometerDemand(this, "TEMP", thermometerIP, ThermometerPort, timeout, runnableFimConsultaTemperatura).execute(1)
+//            ThermometerDemand(this, "TEMP", thermometerIP, ThermometerPort, timeout).execute(1)
+
+            ThermometerLoop(this, "TEMP", thermometerIP, ThermometerPort, 3000, 100000, 1000L).execute(1)
+
         }
     }
 
     fun fxFimConsulta(temp:String?) {
         if ( temp != null) {
-            Timber.i("fxFimConsulta=${temp}")
+            Timber.i("fxFimConsulta=${String}")
+            tv_lastResult.text = ThermometerDemand.response
+        } else {
+            Timber.i("fxFimConsulta")
         }
-    }
-
-    val runnableFimConsultaTemperatura = Runnable {
-        Timber.i("Runnable runnableFimConsultaTemperatura=${temperaturaMedida}")
-
+        btn_consulta.setText("Consulta")
         btn_consulta.isEnabled = true
-        tv_lastResult.text = ThermometerDemand.response
     }
 
 
@@ -256,7 +259,7 @@ class MainActivity : AppCompatActivity() {
         Timber.i("SSID : ${nomeDaRedeWifi}")
         Timber.i("PASSWD : ${senha}")
 
-        WifiController.ConnectToWifiAccessPointNetwork(this, nomeDaRedeWifi, senha.toString()).execute(123)
+        WifiController.ConnectToWifiAccessPointNetwork(this, nomeDaRedeWifi, senha.toString()).execute(TIMEOUT_TO_CONNECT_ACCESS_POINT)
     }
 
 

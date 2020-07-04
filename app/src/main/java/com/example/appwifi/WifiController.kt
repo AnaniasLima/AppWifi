@@ -221,19 +221,19 @@ object WifiController  {
         }
 
         override fun doInBackground(vararg params: Int?): String? {
-            val p1 = params[0] ?: 0
-            Timber.i("doInBackground ${p1}")
+            val startTime = System.currentTimeMillis()
+            val timeout = (params[0] ?: 0 ) * 1000
+            val endTime = startTime + timeout
+            Timber.i("doInBackground timeout=${timeout}")
             try {
-                var esperando = 10000
                 connectThread = ConnectAccessPointThread(ssid, passwd)
                 connectThread.start()
-//WWW
-                while ( esperando > 0 ) {
+
+                while ( System.currentTimeMillis() <  endTime) {
                     Thread.sleep(100)
                     if ( ! connectThread.isAlive ) {
                         break;
                     }
-                    esperando -= 100
                 }
                 connectThread.interrupt()
             } catch (e: IOException)
@@ -350,11 +350,13 @@ object WifiController  {
                     Toast.makeText(context, log, Toast.LENGTH_SHORT).show()
                     newNetwork = ssid
 
+                    ScreenLog.add(LogType.TO_HISTORY, "Connected to SSID:"+ssid)
                 }
 
                 if ( networkInfo.state == NetworkInfo.State.DISCONNECTED ) {
                     //                Toast.makeText(context, "Desconectando Wifi", Toast.LENGTH_SHORT).show()
                     Timber.i("NetworkInfo.State.DISCONNECTED ")
+                    ScreenLog.add(LogType.TO_HISTORY, "Network Disconnected")
                     newNetwork = ""
                 }
             }
@@ -380,6 +382,9 @@ object WifiController  {
     }
 
     fun disconnectFromWPAWiFi(tag:String ) {
+        val startTime = System.currentTimeMillis()
+        val timeout = 3000
+        val endTime = startTime + timeout
 
         Timber.i("disconnectFromWPAWiFi from ${tag} SSID: ${wifiManager.connectionInfo.ssid}   networkId=${wifiManager.connectionInfo.networkId} ");
 
@@ -394,13 +399,9 @@ object WifiController  {
 
             // Aguarda sinalização da desconexao
             Timber.i("Aguardando desconexao...");
-            var conta=3000
+            while ( System.currentTimeMillis() <  endTime) {
 
-            // WWW
-            while (  conta > 0 ) {
-
-                Timber.e("===== Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]  wifiManager.connectionInfo.networkId=${wifiManager.connectionInfo.networkId}");
-                conta -= 100
+                Timber.e("=====now: ${System.currentTimeMillis()} endtime:${endTime}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]  wifiManager.connectionInfo.networkId=${wifiManager.connectionInfo.networkId}");
                 try {
                     sleep(100)
                 } catch (e: Exception) {
@@ -418,7 +419,7 @@ object WifiController  {
                 }
 
             }
-            Timber.e("=====>>>> Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]")
+            Timber.e("=====>>>> now: ${System.currentTimeMillis()} endtime:${endTime}   [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]")
 
         } catch (e: Exception) {
             Timber.d("Ocorreu uma Exception ")
@@ -431,6 +432,9 @@ object WifiController  {
 
     //connects to the given ssid
     fun connectToWPAWiFi(ssid:String, tag:String) : Boolean{
+        val startTime = System.currentTimeMillis()
+        val timeout = 10000
+        val endTime = startTime + timeout
 
         Timber.i("entrando em connectToWPAWiFi from ${tag}: ${ssid}");
 
@@ -455,18 +459,16 @@ object WifiController  {
 
         // Aguarda sinalização da nova rede conectada
         Timber.i("Sucesso em reconnect SSID : ${ssid}");
-        var conta=10000
-// WWW
-        while (  (newNetwork == "")  and (conta > 0)) {
-            Timber.e("===== Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]     networkId=${wifiManager.connectionInfo.networkId}");
-            conta -= 100
+
+        while (  (newNetwork == "")  and (System.currentTimeMillis() <  endTime) ) {
+            Timber.e("=====now: ${System.currentTimeMillis()} endtime:${endTime}  [${wifiManager.connectionInfo.ssid}]     networkId=${wifiManager.connectionInfo.networkId}")
             sleep(100)
         }
 
         if ( comparaSSID(wifiManager.connectionInfo.ssid, ssid) ) {
             Timber.i("=====>>>> Sucesso ao conectar em  SSID : ${ssid}");
         } else {
-            Timber.e("=====>>>> Conta =  ${conta}  [${wifiManager.connectionInfo.ssid}]  newNetwork = [${newNetwork}]")
+            Timber.e("=====now: ${System.currentTimeMillis()} endtime:${endTime}  [${wifiManager.connectionInfo.ssid}]     networkId=${wifiManager.connectionInfo.networkId}")
             return false
         }
 

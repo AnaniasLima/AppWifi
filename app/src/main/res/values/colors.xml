@@ -13,4 +13,6 @@
     <color name="fundo">#ED009DFF</color>
     <color name="fundo2">#ED1773AC</color>
 
+    <color name="colorTextLog">#1B4BDB</color>
+
 </resources>
