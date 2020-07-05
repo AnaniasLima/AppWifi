@@ -163,6 +163,19 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
             var socket : Socket? = null
             try {
                 Timber.e("WWWWWWWW Tentando socket host=${host}  porta=${porta}")
+
+                if ( out != null) {
+                    Timber.e("   antes close em out")
+                    out!!.close()
+                    out=null
+                }
+                if ( `in` != null) {
+                    Timber.e("   antes close em in")
+                    `in`!!.close()
+                    `in`=null
+                }
+
+
                 socket = Socket(host, porta)
 
                 if ( socket.isConnected() ) {
@@ -198,7 +211,8 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
             } catch (e: UnknownHostException) {
                 Timber.e("UnknownHostException")
             } catch (e: IOException) {
-                Timber.e("IOException")
+                e.message
+                Timber.e("IOException  e.message=${e.message}")
             } catch (e: SecurityException) {
                 Timber.e("SecurityException")
             } catch (e: IllegalArgumentException) {

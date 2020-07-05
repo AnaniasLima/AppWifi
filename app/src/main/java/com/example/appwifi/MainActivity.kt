@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity() {
         if ( ! FindIPUsingMac.isRunning ) {
 //            ThermometerDemand(this, "TEMP", thermometerIP, ThermometerPort, timeout).execute(1)
 
-            ThermometerLoop(this, "TEMP", thermometerIP, ThermometerPort, 3000, 100000, 1000L).execute(1)
+            ThermometerLoop(this, "TEMP", thermometerIP, ThermometerPort, 10000, 100000, 1000L).execute(1)
 
         }
     }

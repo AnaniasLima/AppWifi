@@ -340,6 +340,8 @@ object WifiController  {
             val action = intent.action
             val networkInfo= intent.getParcelableExtra<NetworkInfo>(WifiManager.EXTRA_NETWORK_INFO)
 
+            ScreenLog.add(LogType.TO_HISTORY, "wifiEventsReceiver ${action}")
+
             if ( networkInfo != null ) {
                 Timber.i("wifiEventsReceiver recebendo uma notificacao de: action=${action}   isConnectedOrConnecting=${networkInfo.isConnectedOrConnecting}  state=${networkInfo.state}")
 
