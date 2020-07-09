@@ -8,6 +8,7 @@ import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Handler
 import android.view.View
+import android.widget.RadioButton
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
         var temperaturaMedida : Float = 36.0F
         var thermometerHandler = Handler()
         var activity: AppCompatActivity? = null
+        lateinit var selectedDelay : RadioButton
     }
 
 
@@ -46,6 +48,7 @@ class MainActivity : AppCompatActivity() {
 
         thermometerMacAddress = sharedPreferences?.getString("thermometerMacAddress", "").toString()
 
+        selectedDelay = delay_1000
 
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
@@ -71,8 +74,22 @@ class MainActivity : AppCompatActivity() {
             WifiController.ConnectToWifiAccessPointNetwork(this, "", "").execute(TIMEOUT_TO_CONNECT_ACCESS_POINT)
         }
 
-        btn_consulta.setOnClickListener {
-            consultaTemperatura(3000)
+        btn_start.setOnClickListener {
+            var delay = MainActivity.selectedDelay.text.toString().toLong()
+
+            ScreenLog.clear(LogType.TO_LOG)
+            ScreenLog.clear(LogType.TO_HISTORY)
+
+            btn_start.isEnabled = false
+            btn_stop.isEnabled = true
+
+            if ( ! FindIPUsingMac.isRunning ) {
+                ThermometerLoop(this, "TEMP", thermometerIP, ThermometerPort, 10000, delay).execute(1)
+            }
+        }
+
+        btn_stop.setOnClickListener {
+            ThermometerLoop.stop = true
         }
 
         btn_startupError.setOnClickListener {
@@ -80,6 +97,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         testCurrentWifiNetwork()
+    }
+
+    fun radioClick(view : View) {
+        selectedDelay.isChecked = false
+        selectedDelay = view as RadioButton
+        selectedDelay.isChecked = true
     }
 
 
@@ -107,13 +130,17 @@ class MainActivity : AppCompatActivity() {
     fun testCurrentWifiNetwork() {
         var errorMessage : String? = null
         val fxName = object{}.javaClass.enclosingMethod?.name
-        Timber.e("#### ${fxName}  ####")
+        Timber.e("#### ${fxName}  AAA ####")
 
         var wifiConfig= WifiController.getWiFiConfig("\"" + ArduinoSSID + "\"")
+
+        Timber.e("#### ${fxName}  BBB ####")
 
         startupPanel.visibility = View.VISIBLE
         btn_startupError.setText("  Avaliando Rede... \n  Aguarde... ")
         btn_startupError.isEnabled = false
+
+        Timber.e("#### ${fxName}  CCC ####")
 
         if ( wifiConfig != null) {
 
@@ -168,28 +195,14 @@ class MainActivity : AppCompatActivity() {
     //-------------------------------------------------
     // Consulta
     //-------------------------------------------------
-    fun consultaTemperatura(timeout : Int) {
-        btn_consulta.setText("Aguarde...")
-        btn_consulta.isEnabled = false
-        tv_lastResult.text = ""
-
-        if ( ! FindIPUsingMac.isRunning ) {
-//            ThermometerDemand(this, "TEMP", thermometerIP, ThermometerPort, timeout).execute(1)
-
-            ThermometerLoop(this, "TEMP", thermometerIP, ThermometerPort, 10000, 100000, 1000L).execute(1)
-
-        }
-    }
-
     fun fxFimConsulta(temp:String?) {
         if ( temp != null) {
             Timber.i("fxFimConsulta=${String}")
-            tv_lastResult.text = ThermometerDemand.response
         } else {
             Timber.i("fxFimConsulta")
         }
-        btn_consulta.setText("Consulta")
-        btn_consulta.isEnabled = true
+        btn_start.isEnabled = true
+        btn_stop.isEnabled = false
     }
 
 

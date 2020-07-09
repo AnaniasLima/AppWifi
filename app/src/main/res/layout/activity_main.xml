@@ -237,21 +237,86 @@
             app:layout_constraintEnd_toEndOf="parent"
             >
 
-        <Button
-            android:id="@+id/btn_consulta"
+            <Button
+            android:id="@+id/btn_start"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:enabled="true"
-            android:text="Consulta"
+            android:text="Start"
             android:visibility="visible"
             />
 
-        <TextView
-            android:id="@+id/tv_lastResult"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="37.5ºC"
-            />
+            <Button
+                android:id="@+id/btn_stop"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:enabled="true"
+                android:text="Stop"
+                android:visibility="visible"
+                />
+
+
+            <RadioGroup
+                android:id="@+id/radioGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                >
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:columnCount="3">
+
+                    <RadioButton
+                        android:id="@+id/delay_100"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="100"
+                        android:onClick="radioClick"
+                        />
+                    <RadioButton
+                        android:id="@+id/delay_200"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="200"
+                        android:onClick="radioClick"
+                        />
+                    <RadioButton
+                        android:id="@+id/delay_500"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="500"
+                        android:onClick="radioClick"
+                        />
+                    <RadioButton
+                        android:id="@+id/delay_1000"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1000"
+                        android:checked="true"
+                        android:onClick="radioClick"
+                        />
+                    <RadioButton
+                        android:id="@+id/delay_3000"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="3000"
+                        android:onClick="radioClick"
+                        />
+
+                    <RadioButton
+                        android:id="@+id/delay_5000"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="5000"
+                        android:onClick="radioClick"
+                        />
+
+
+                </GridLayout>
+            </RadioGroup>
 
         </LinearLayout>
 

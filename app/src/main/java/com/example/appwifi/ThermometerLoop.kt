@@ -9,7 +9,7 @@ import java.net.Socket
 import java.net.UnknownHostException
 
 
-class ThermometerLoop(activity: MainActivity, val demanda:String, val host:String, val portNumber:Int, var timeout: Int, var conta:Int, val delay:Long) : AsyncTask<Int, String, String>()  {
+class ThermometerLoop(activity: MainActivity, val demanda:String, val host:String, val portNumber:Int, var timeout: Int, var delay:Long) : AsyncTask<Int, String, String>()  {
     private var connectSuccess: Boolean = true
     private var activityWeakReference : WeakReference<MainActivity> = WeakReference(activity)
 
@@ -19,6 +19,7 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
         var mainSocket : Socket? = null
         var out : PrintWriter? = null
         var `in` : BufferedReader? = null
+        var stop = false
     }
 
 
@@ -36,13 +37,12 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
         Timber.i("Demanda solicitada: ${demanda}...")
         response = null
         errorType = 0
+        stop = false
     }
 
     override fun onProgressUpdate(vararg values: String?) {
         super.onProgressUpdate(*values)
-
         var activity= activityWeakReference.get()
-
         if ( activity == null || activity.isFinishing()) {
             return
         }
@@ -56,6 +56,8 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
                 mostraNaTela(str)
             }
         }
+
+        delay = MainActivity.selectedDelay.text.toString().toLong()
     }
 
     override fun doInBackground(vararg params: Int?): String? {
@@ -66,10 +68,11 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
         var responseFromSocket : String? = null
         try {
 
-            while ( tentativa++ < conta ) {
-
+            while ( ! stop ) {
                 val startTime = System.currentTimeMillis()
                 val endTime = startTime + timeout
+
+                tentativa++
 
                 demandThread = DemandThread(host, portNumber, demanda)
                 demandThread.start()
@@ -102,26 +105,9 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
 
         Timber.i("doInBackground return" )
 
-
         return responseFromSocket
     }
 
-    fun closeSocket() {
-        if ( mainSocket != null) {
-            mainSocket!!.close()
-            mainSocket = null
-        }
-
-        if ( out != null) {
-            out!!.close()
-            out = null
-        }
-        if ( `in` != null) {
-            `in`!!.close()
-            `in` = null
-        }
-
-    }
 
     override fun onPostExecute(result: String?) {
         var activity= activityWeakReference.get()
@@ -142,6 +128,22 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
         activity.fxFimConsulta(result)
     }
 
+    fun closeSocket() {
+        if ( mainSocket != null) {
+            mainSocket!!.close()
+            mainSocket = null
+        }
+
+        if ( out != null) {
+            out!!.close()
+            out = null
+        }
+        if ( `in` != null) {
+            `in`!!.close()
+            `in` = null
+        }
+
+    }
 
     class DemandThread( val  host: String, val porta:Int, val demanda:String) : Thread() {
         var serverResponse : String? = null
@@ -174,7 +176,6 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
                     `in`!!.close()
                     `in`=null
                 }
-
 
                 socket = Socket(host, porta)
 
@@ -235,8 +236,6 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
                     out!!.flush()
                     Timber.i("Calling Write ${demanda}")
                     resposeFromServer = `in`!!.readLine()
-//                    out!!.close()
-//                    `in`!!.close()
                     Timber.i("response ======>>>>>  [${resposeFromServer}]  Tam: ${resposeFromServer.length}")
                 } else {
                     Timber.e( "Socket is not connected")
@@ -250,10 +249,7 @@ class ThermometerLoop(activity: MainActivity, val demanda:String, val host:Strin
             return resposeFromServer
         }
 
-
     }
-
-
 
 }
 
