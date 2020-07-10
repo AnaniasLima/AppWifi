@@ -132,43 +132,49 @@ class MainActivity : AppCompatActivity() {
         val fxName = object{}.javaClass.enclosingMethod?.name
         Timber.e("#### ${fxName}  AAA ####")
 
-        var wifiConfig= WifiController.getWiFiConfig("\"" + ArduinoSSID + "\"")
+        if ( WifiController.wifiManager.isWifiEnabled) {
+            var wifiConfig= WifiController.getWiFiConfig("\"" + ArduinoSSID + "\"")
 
-        Timber.e("#### ${fxName}  BBB ####")
+            Timber.e("#### ${fxName}  BBB ####")
 
-        startupPanel.visibility = View.VISIBLE
-        btn_startupError.setText("  Avaliando Rede... \n  Aguarde... ")
-        btn_startupError.isEnabled = false
+            startupPanel.visibility = View.VISIBLE
+            btn_startupError.setText("  Avaliando Rede... \n  Aguarde... ")
+            btn_startupError.isEnabled = false
 
-        Timber.e("#### ${fxName}  CCC ####")
+            Timber.e("#### ${fxName}  CCC ####")
 
-        if ( wifiConfig != null) {
+            if ( wifiConfig != null) {
 
-            // Remove ArduinoSSID da lista de redes cadastradas
-            if ( WifiController.wifiManager.removeNetwork(wifiConfig.networkId) ) {
-                Timber.e("Removendo ${MainActivity.ArduinoSSID}")
-                errorMessage="\n Rede \"${ArduinoSSID}\" precisa \n Ser removida \n (Clique para validar Remoção) \n "
+                // Remove ArduinoSSID da lista de redes cadastradas
+                if ( WifiController.wifiManager.removeNetwork(wifiConfig.networkId) ) {
+                    Timber.e("Removendo ${MainActivity.ArduinoSSID}")
+                    errorMessage="\n Rede \"${ArduinoSSID}\" precisa \n Ser removida \n (Clique para validar Remoção) \n "
+                } else {
+                    Timber.e("Erro na exclusao da rede ${MainActivity.ArduinoSSID}")
+                    errorMessage = "\n Rede \"${ArduinoSSID}\" não \n pode estar previamente cadastrada \n Exclua a rede Wifi \"${ArduinoSSID}\" \n"
+                }
+
+            } else if (WifiController.isWifiAccessPointEnabled()) {
+                nomeDaRedeWifi = WifiController.getAccessPointSSID()
+                passwordDaRedeWifi = WifiController.getAccessPointPassword()
+                if ( nomeDaRedeWifi.contains("unknown")) {
+                    errorMessage="\nRede Wifi <unknown>\n Favor tentar novamente \n (Ajuste e clique no botão)\n"
+                }
             } else {
-                Timber.e("Erro na exclusao da rede ${MainActivity.ArduinoSSID}")
-                errorMessage = "\n Rede \"${ArduinoSSID}\" não \n pode estar previamente cadastrada \n Exclua a rede Wifi \"${ArduinoSSID}\" \n"
-            }
+                nomeDaRedeWifi = WifiController.getCurrentSSID()
 
-        } else if (WifiController.isWifiAccessPointEnabled()) {
-            nomeDaRedeWifi = WifiController.getAccessPointSSID()
-            passwordDaRedeWifi = WifiController.getAccessPointPassword()
-            if ( nomeDaRedeWifi.contains("unknown")) {
-                errorMessage="\nRede Wifi <unknown>\n Favor tentar novamente \n (Ajuste e clique no botão)\n"
+                if (nomeDaRedeWifi.length == 0) {
+                    errorMessage="\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n"
+                } else if (nomeDaRedeWifi.contains(ArduinoSSID)) {
+                    errorMessage = "\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o " +
+                            "\nTermometro deverá ser conectado\n" + "(Ajuste e clique no botão)\n"
+                }
             }
         } else {
-            nomeDaRedeWifi = WifiController.getCurrentSSID()
-
-            if (nomeDaRedeWifi.length == 0) {
-                errorMessage="\nSem conexão WIFI ativa.\nFavor conectar na mesma\nrede WIFI na qual o \nTermometro deverá ser conectado\n(Ajuste e clique no botão)\n"
-            } else if (nomeDaRedeWifi.contains(ArduinoSSID)) {
-                errorMessage = "\nConexão WIFI ativa deve \nser a mesma rede WIFI na qual o " +
-                        "\nTermometro deverá ser conectado\n" + "(Ajuste e clique no botão)\n"
-            }
+            errorMessage=" Favor Habilitar \n   Wifi"
         }
+
+
 
         if (errorMessage != null ) {
             btn_startupError.setText(errorMessage)

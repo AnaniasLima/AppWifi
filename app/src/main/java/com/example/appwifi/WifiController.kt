@@ -373,10 +373,14 @@ object WifiController  {
 
     fun getWiFiConfig(ssid: String): WifiConfiguration? {
         val wifiList= wifiManager.configuredNetworks
-        for (item in wifiList){
-            if(item.SSID != null && item.SSID.equals(ssid)){
-                return item
+
+        if ( wifiList.size > 0 ) {
+            for (item in wifiList){
+                if(item.SSID != null && item.SSID.equals(ssid)){
+                    return item
+                }
             }
+        } else {
         }
         return null
     }
